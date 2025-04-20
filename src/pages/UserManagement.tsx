@@ -46,6 +46,7 @@ import { useUsers } from '@/hooks/use-users';
 import { useAuth } from '@/context/AuthContext';
 import { Column } from '@/types/data-table';
 import { toast } from 'sonner';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const UserManagement = () => {
   const {
@@ -91,6 +92,10 @@ const UserManagement = () => {
     } else {
       handlePackageSelectionChange(formData.assignedPackages.filter(id => id !== packageId));
     }
+  };
+
+  const handleRoleChange = (value: string) => {
+    handleSelectChange('role', value);
   };
 
   const columns: Column[] = [
@@ -322,19 +327,20 @@ const UserManagement = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
-                  <Select
-                    value={formData.role}
-                    onValueChange={(value) => handleSelectChange('role', value)}
-                    required
+                  <RadioGroup 
+                    value={formData.role} 
+                    onValueChange={handleRoleChange}
+                    className="flex space-x-4"
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select user role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="user">User</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="admin" id="role-admin" />
+                      <Label htmlFor="role-admin" className="cursor-pointer">Admin</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="user" id="role-user" />
+                      <Label htmlFor="role-user" className="cursor-pointer">User</Label>
+                    </div>
+                  </RadioGroup>
                 </div>
 
                 {!selectedUser && (
@@ -355,25 +361,27 @@ const UserManagement = () => {
                 {selectedUser && (
                   <div className="space-y-2">
                     <Label htmlFor="status">Account Status</Label>
-                    <Select
+                    <RadioGroup 
                       value={selectedUser.active ? "active" : "inactive"}
                       onValueChange={(value) => {
-                        if (selectedUser) {  // Add a check to ensure selectedUser exists
+                        if (selectedUser) {
                           setSelectedUser({
                             ...selectedUser,
                             active: value === "active"
                           });
                         }
                       }}
+                      className="flex space-x-4"
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="active" id="status-active" />
+                        <Label htmlFor="status-active" className="cursor-pointer">Active</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="inactive" id="status-inactive" />
+                        <Label htmlFor="status-inactive" className="cursor-pointer">Inactive</Label>
+                      </div>
+                    </RadioGroup>
                   </div>
                 )}
 
