@@ -318,6 +318,11 @@ const Reports = () => {
   };
 
   const regularUserColumns = [
+    // Add ID column first
+    {
+      header: "ID",
+      accessorKey: "id"
+    },
     { 
       header: "Package",
       accessorKey: "packages.name",
@@ -359,6 +364,11 @@ const Reports = () => {
   ];
 
   const adminColumns = [
+    // Add ID column first
+    {
+      header: "ID",
+      accessorKey: "id",
+    },
     { 
       header: "Package",
       accessorKey: "packages.name",
@@ -401,10 +411,6 @@ const Reports = () => {
       header: "Departure Date",
       accessorKey: "departure_time",
       cell: (row: any) => format(parseISO(row.departure_time), 'PPP')
-    },
-    {
-      header: "ID",
-      accessorKey: "id",
     },
     {
       header: "Billing Rate (₹/Ton)",
@@ -600,6 +606,7 @@ const Reports = () => {
                     ) : (
                       sortedShipments.map((shipment) => (
                         <TableRow key={shipment.id}>
+                          <TableCell>{shipment.id}</TableCell>
                           <TableCell>{shipment.packages?.name || 'N/A'}</TableCell>
                           <TableCell>{shipment.source}</TableCell>
                           <TableCell>{shipment.destination}</TableCell>
@@ -614,7 +621,6 @@ const Reports = () => {
                           
                           {isAdmin && (
                             <>
-                              <TableCell>{shipment.id}</TableCell>
                               <TableCell>
                                 {shipment.routes?.billing_rate_per_ton ? `₹${shipment.routes.billing_rate_per_ton}` : 'N/A'}
                               </TableCell>
