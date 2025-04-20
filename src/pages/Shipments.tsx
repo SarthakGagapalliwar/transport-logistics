@@ -98,16 +98,25 @@ const Shipments = () => {
       return "Invalid date";
     }
   };
-
+  
   const filteredRoutes =
-    formData.packageId && formData.packageId !== "none"
-      ? routes.filter((route) => route.assignedPackageId === formData.packageId)
-      : routes;
-
+  formData.packageId && formData.packageId !== "none"
+  ? routes.filter((route) => route.assignedPackageId === formData.packageId)
+  : routes;
+  
   const allColumns: Column[] = [
+    // {
+    //   header: "ID",
+    //   accessorKey: "id",
+    // },
     {
-      header: "ID",
-      accessorKey: "id",
+      header: "Package",
+      accessorKey: "packageName",
+      cell: (row: any) => {
+        if (!row.packageId) return "None";
+        const pkg = packages.find((p) => p.id === row.packageId);
+        return pkg ? pkg.name : "Unknown";
+      },
     },
     {
       header: "Source",
@@ -141,15 +150,6 @@ const Shipments = () => {
       accessorKey: "vendorRatePerTon",
       cell: (row: any) =>
         row.vendorRatePerTon ? formatCurrency(row.vendorRatePerTon) : "N/A",
-    },
-    {
-      header: "Associated Package",
-      accessorKey: "packageName",
-      cell: (row: any) => {
-        if (!row.packageId) return "None";
-        const pkg = packages.find((p) => p.id === row.packageId);
-        return pkg ? pkg.name : "Unknown";
-      },
     },
     {
       header: "Material",
