@@ -395,6 +395,10 @@ export type Database = {
         Args: { user_id: string; package_ids: string[] }
         Returns: undefined
       }
+      assign_user_role: {
+        Args: { user_id: string; user_role: string }
+        Returns: undefined
+      }
       delete_user: {
         Args: { user_id: string }
         Returns: undefined

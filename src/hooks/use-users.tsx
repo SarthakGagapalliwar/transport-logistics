@@ -73,6 +73,51 @@ export const useUsers = () => {
     },
   });
 
+  // Mutation to update a user
+  const updateUserMutation = useMutation({
+    mutationFn: async (user: User & { assignedPackages?: string[] }) => {
+      // First update user profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          username: user.username,
+          active: user.active
+        })
+        .eq('id', user.id);
+      
+      if (profileError) throw profileError;
+
+      // Then update the user role using our new function
+      const { error: roleError } = await supabase.rpc('assign_user_role', {
+        user_id: user.id,
+        user_role: user.role
+      });
+      
+      if (roleError) throw roleError;
+
+      // Update assigned packages if provided
+      if (user.assignedPackages) {
+        const { error: packageError } = await supabase.rpc('assign_packages_to_user', {
+          user_id: user.id,
+          package_ids: user.assignedPackages
+        });
+        
+        if (packageError) throw packageError;
+      }
+      
+      return user;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('User updated successfully');
+      setOpenDialog(false);
+      resetForm();
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update user: ${error.message}`);
+    },
+  });
+
   // Mutation to add a new user
   const addUserMutation = useMutation({
     mutationFn: async (userData: UserFormData) => {
@@ -83,15 +128,26 @@ export const useUsers = () => {
         options: {
           data: {
             username: userData.name,
-            role: userData.role,
           },
         },
       });
       
       if (authError) throw authError;
 
-      // After successful signup, assign packages if any
-      if (userData.assignedPackages.length > 0 && authData.user) {
+      if (!authData.user) {
+        throw new Error('No user data returned from signup');
+      }
+
+      // Set the user role using our new function
+      const { error: roleError } = await supabase.rpc('assign_user_role', {
+        user_id: authData.user.id,
+        user_role: userData.role
+      });
+      
+      if (roleError) throw roleError;
+
+      // Assign packages if any
+      if (userData.assignedPackages.length > 0) {
         const { error } = await supabase.rpc('assign_packages_to_user', {
           user_id: authData.user.id,
           package_ids: userData.assignedPackages
@@ -113,47 +169,6 @@ export const useUsers = () => {
     },
     onError: (error: Error) => {
       toast.error(`Failed to add user: ${error.message}`);
-    },
-  });
-
-  // Mutation to update a user
-  const updateUserMutation = useMutation({
-    mutationFn: async (user: User & { assignedPackages?: string[] }) => {
-      // Update user in the profiles table
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          username: user.username,
-          role: user.role,
-          active: user.active
-        })
-        .eq('id', user.id);
-      
-      if (error) throw error;
-
-      // Update assigned packages
-      if (user.assignedPackages) {
-        const { error: packageError } = await supabase.rpc('assign_packages_to_user', {
-          user_id: user.id,
-          package_ids: user.assignedPackages
-        });
-        
-        if (packageError) {
-          console.error('Error assigning packages:', packageError);
-          throw packageError;
-        }
-      }
-      
-      return user;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success('User updated successfully');
-      setOpenDialog(false);
-      resetForm();
-    },
-    onError: (error: Error) => {
-      toast.error(`Failed to update user: ${error.message}`);
     },
   });
 
