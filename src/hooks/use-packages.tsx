@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -11,6 +12,7 @@ interface DbPackage {
   created_by_id: string;
   created_at: string;
   updated_at: string;
+  active: boolean; // Add the active property
 }
 
 // Type for package in application
@@ -20,7 +22,7 @@ export interface Package {
   createdById: string;
   createdAt: string;
   updatedAt: string;
-  active: boolean;
+  active: boolean; // Add the active property
 }
 
 // Convert DB format to app format
@@ -30,11 +32,13 @@ const dbToAppPackage = (dbPackage: DbPackage): Package => ({
   createdById: dbPackage.created_by_id,
   createdAt: dbPackage.created_at,
   updatedAt: dbPackage.updated_at,
+  active: dbPackage.active,
 });
 
 // Convert app format to DB format
 const appToDbPackage = (pkg: Partial<Package>) => ({
   name: pkg.name,
+  active: pkg.active,
 });
 
 // Isolate the data fetching function

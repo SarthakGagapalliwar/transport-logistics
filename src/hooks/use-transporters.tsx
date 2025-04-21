@@ -11,6 +11,7 @@ export interface Transporter {
   contactPerson: string;
   contactNumber: string;
   address: string;
+  active: boolean; // Add the active property
 }
 
 // Convert DB format to app format
@@ -21,6 +22,7 @@ const dbToAppTransporter = (dbTransporter: DbTransporter): Transporter => ({
   contactPerson: dbTransporter.contact_person,
   contactNumber: dbTransporter.contact_number,
   address: dbTransporter.address,
+  active: dbTransporter.active, // Map the active property
 });
 
 // Convert app format to DB format
@@ -30,6 +32,7 @@ const appToDbTransporter = (transporter: Partial<Transporter>) => ({
   contact_person: transporter.contactPerson,
   contact_number: transporter.contactNumber,
   address: transporter.address,
+  active: transporter.active, // Include the active property
 });
 
 // Isolate the data fetching function to avoid circular dependencies

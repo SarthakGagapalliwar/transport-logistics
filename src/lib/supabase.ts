@@ -1,4 +1,3 @@
-
 import { createClient } from "@supabase/supabase-js";
 
 // These environment variables are automatically injected by the Supabase integration
@@ -186,6 +185,7 @@ export type DbTransporter = {
   contact_number: string;
   address: string;
   created_at: string;
+  active: boolean; // Add the active property
 };
 
 export type DbVehicle = {

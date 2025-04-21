@@ -61,10 +61,14 @@ const PackageForm = () => {
     if (selectedPackage) {
       updatePackageMutation.mutate({
         id: selectedPackage.id,
-        ...values,
+        name: values.name, // Ensure name is required
+        active: values.active,
       });
     } else {
-      addPackageMutation.mutate(values);
+      addPackageMutation.mutate({
+        name: values.name, // Ensure name is required
+        active: values.active,
+      });
     }
   };
 

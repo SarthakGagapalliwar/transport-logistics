@@ -34,7 +34,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useTransporters } from "@/hooks/use-transporters";
 import { useAuth } from "@/context/AuthContext";
 import { Column } from "@/types/data-table";
-import Switch from "@/components/ui/switch";
+import { Switch } from "@/components/ui/switch";
 
 const Transporters = () => {
   const {
@@ -55,7 +55,6 @@ const Transporters = () => {
 
   const { user } = useAuth();
 
-  // Columns for the data table
   const columns: Column[] = [
     {
       header: "Name",
