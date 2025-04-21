@@ -46,8 +46,8 @@ const Packages = () => {
     {
       header: "Status",
       accessorKey: "active",
-      cell: (row: any) => {
-        const pkg = row.row.original;
+      cell: (info: any) => {
+        const pkg = info.row.original;
         return (
           <div className="flex items-center space-x-2">
             <Switch
@@ -65,9 +65,9 @@ const Packages = () => {
     {
       header: "Actions",
       accessorKey: "actions",
-      cell: (row: any) => (
+      cell: (info: any) => (
         <div className="flex space-x-2">
-          <Button variant="ghost" size="icon" onClick={() => handleEditPackage(row.row.original)}>
+          <Button variant="ghost" size="icon" onClick={() => handleEditPackage(info.row.original)}>
             <Pencil className="h-4 w-4" />
           </Button>
         </div>
