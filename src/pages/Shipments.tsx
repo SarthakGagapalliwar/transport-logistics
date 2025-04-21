@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Helmet } from "react-helmet";
 import PageTransition from "@/components/ui-custom/PageTransition";
 import { DataTable } from "@/components/ui-custom/DataTable";
@@ -70,6 +70,49 @@ const Shipments = () => {
 
   const isMobile = useIsMobile();
   const { user } = useAuth();
+
+  // New state for field errors
+  const [weightErrors, setWeightErrors] = useState({
+    grossWeight: "",
+    tareWeight: "",
+    netWeight: "",
+  });
+
+  // Parse weights and compute net
+  const grossWeightNum = parseFloat(formData.grossWeight || "0") || 0;
+  const tareWeightNum = parseFloat(formData.tareWeight || "0") || 0;
+  const netWeightNum =
+    grossWeightNum >= 0 && tareWeightNum >= 0
+      ? parseFloat((grossWeightNum - tareWeightNum).toFixed(5))
+      : 0;
+
+  // Validation
+  React.useEffect(() => {
+    let errors: typeof weightErrors = {
+      grossWeight: "",
+      tareWeight: "",
+      netWeight: "",
+    };
+    if (grossWeightNum < 0) {
+      errors.grossWeight = "Gross Weight cannot be negative";
+    }
+    if (tareWeightNum < 0) {
+      errors.tareWeight = "Tare Weight cannot be negative";
+    }
+    if (tareWeightNum > grossWeightNum) {
+      errors.netWeight = "Tare Weight cannot exceed Gross Weight";
+    }
+    setWeightErrors(errors);
+    // Automatically update net quantity in the form
+    setFormData((prev) => ({
+      ...prev,
+      quantityTons:
+        grossWeightNum >= 0 && tareWeightNum >= 0 && tareWeightNum <= grossWeightNum
+          ? netWeightNum.toFixed(5)
+          : "",
+    }));
+    // eslint-disable-next-line
+  }, [formData.grossWeight, formData.tareWeight]);
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Not arrived";
@@ -264,8 +307,20 @@ const Shipments = () => {
                 </DialogDescription>
               </DialogHeader>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={(e) => {
+                // Prevent submit if weight errors
+                if (
+                  weightErrors.grossWeight ||
+                  weightErrors.tareWeight ||
+                  weightErrors.netWeight
+                ) {
+                  e.preventDefault();
+                  return;
+                }
+                handleSubmit(e);
+              }} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
                   <div className="space-y-2 sm:col-span-2">
                     <Label htmlFor="packageId">Assign to Package</Label>
                     <div className="relative">
@@ -451,28 +506,83 @@ const Shipments = () => {
                       />
                     </div>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="quantityTons">Quantity (tons)</Label>
-                  <div className="relative">
-                    <Weight className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input
-                      id="quantityTons"
-                      name="quantityTons"
-                      type="number"
-                      min="0.00001"
-                      step="0.00001"
-                      placeholder="Enter quantity in tons"
-                      className="pl-10"
-                      value={formData.quantityTons}
-                      onChange={handleInputChange}
-                      required
-                    />
+                  {/* GROSS weight */}
+                  <div className="space-y-2">
+                    <Label htmlFor="grossWeight">Gross Weight (tons)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
+                        <Weight className="h-4 w-4" />
+                      </span>
+                      <Input
+                        id="grossWeight"
+                        name="grossWeight"
+                        type="number"
+                        min="0"
+                        step="0.00001"
+                        className="pl-10"
+                        placeholder="Enter gross weight"
+                        value={formData.grossWeight ?? ""}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+                    {weightErrors.grossWeight && (
+                      <p className="text-xs text-destructive">{weightErrors.grossWeight}</p>
+                    )}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Precise quantities up to 5 decimal places are supported
-                  </p>
+
+                  {/* TARE weight */}
+                  <div className="space-y-2">
+                    <Label htmlFor="tareWeight">Tare Weight (tons)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
+                        <Weight className="h-4 w-4" />
+                      </span>
+                      <Input
+                        id="tareWeight"
+                        name="tareWeight"
+                        type="number"
+                        min="0"
+                        step="0.00001"
+                        className="pl-10"
+                        placeholder="Enter tare weight"
+                        value={formData.tareWeight ?? ""}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+                    {weightErrors.tareWeight && (
+                      <p className="text-xs text-destructive">{weightErrors.tareWeight}</p>
+                    )}
+                  </div>
+
+                  {/* QUANTITY (readonly, auto-calculated) */}
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="quantityTons">Quantity (Net Weight, tons)</Label>
+                    <div className="relative">
+                      <Weight className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input
+                        id="quantityTons"
+                        name="quantityTons"
+                        type="number"
+                        readOnly
+                        min="0"
+                        step="0.00001"
+                        className="pl-10 bg-gray-100 cursor-not-allowed"
+                        placeholder="Net (gross - tare)"
+                        value={formData.quantityTons ?? ""}
+                        required
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Calculated as Gross Weight minus Tare Weight.
+                      {weightErrors.netWeight && (
+                        <span className="text-destructive ml-2">{weightErrors.netWeight}</span>
+                      )}
+                    </p>
+                  </div>
+
                 </div>
 
                 <div className="space-y-2">

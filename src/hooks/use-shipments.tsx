@@ -156,6 +156,8 @@ export const useShipments = () => {
     vehicleId: "",
     source: "",
     destination: "",
+    grossWeight: "",
+    tareWeight: "",
     quantityTons: "",
     status: "Pending",
     departureTime: "",
@@ -363,14 +365,11 @@ export const useShipments = () => {
 
   const handleEditShipment = (shipment: Shipment) => {
     setSelectedShipment(shipment);
-
     let departureTimeFormatted = "";
     if (shipment.departureTime) {
       try {
-        // Parse the departure time string
         const departureDate = new Date(shipment.departureTime);
 
-        // Format as YYYY-MM-DDThh:mm but keep in UTC
         const year = departureDate.getUTCFullYear();
         const month = String(departureDate.getUTCMonth() + 1).padStart(2, "0");
         const day = String(departureDate.getUTCDate()).padStart(2, "0");
@@ -387,7 +386,6 @@ export const useShipments = () => {
     let arrivalTimeFormatted = "";
     if (shipment.arrivalTime) {
       try {
-        // Format the arrival time for the datetime-local input
         arrivalTimeFormatted = shipment.arrivalTime.slice(0, 16);
       } catch (error) {
         console.error("Error formatting arrival time:", error);
@@ -395,11 +393,17 @@ export const useShipments = () => {
       }
     }
 
+    // For backward compatibility (for old shipments without these fields)
+    const grossWeight = shipment.grossWeight ?? "";
+    const tareWeight = shipment.tareWeight ?? "";
+
     setFormData({
       transporterId: shipment.transporterId,
       vehicleId: shipment.vehicleId,
       source: shipment.source,
       destination: shipment.destination,
+      grossWeight: grossWeight?.toString() ?? "",
+      tareWeight: tareWeight?.toString() ?? "",
       quantityTons: shipment.quantityTons.toString(),
       status: shipment.status,
       departureTime: departureTimeFormatted,
@@ -422,7 +426,6 @@ export const useShipments = () => {
   };
 
   const resetForm = () => {
-    // Use the current date and time as default for new shipments
     const now = new Date();
     const formattedNow = now.toISOString().slice(0, 16);
 
@@ -431,6 +434,8 @@ export const useShipments = () => {
       vehicleId: "",
       source: "",
       destination: "",
+      grossWeight: "",
+      tareWeight: "",
       quantityTons: "",
       status: "Pending",
       departureTime: formattedNow,
@@ -447,6 +452,27 @@ export const useShipments = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    const grossWeightNum = parseFloat(formData.grossWeight || "0");
+    const tareWeightNum = parseFloat(formData.tareWeight || "0");
+    if (
+      isNaN(grossWeightNum) ||
+      isNaN(tareWeightNum) ||
+      grossWeightNum < 0 ||
+      tareWeightNum < 0
+    ) {
+      toast.error("Weights must be valid non-negative numbers");
+      return;
+    }
+    if (tareWeightNum > grossWeightNum) {
+      toast.error("Tare Weight cannot exceed Gross Weight");
+      return;
+    }
+    const netWeight = parseFloat((grossWeightNum - tareWeightNum).toFixed(5));
+    if (netWeight < 0) {
+      toast.error("Net Weight cannot be negative");
+      return;
+    }
+
     if (!formData.transporterId) {
       toast.error("Please select a transporter");
       return;
@@ -462,8 +488,8 @@ export const useShipments = () => {
       return;
     }
 
-    if (!formData.quantityTons) {
-      toast.error("Please enter a valid quantity");
+    if (!netWeight || isNaN(netWeight)) {
+      toast.error("Net weight (Quantity) must be greater than zero");
       return;
     }
 
@@ -472,9 +498,11 @@ export const useShipments = () => {
       vehicleId: formData.vehicleId,
       source: formData.source,
       destination: formData.destination,
-      quantityTons: Number(parseFloat(formData.quantityTons).toFixed(5)),
+      grossWeight: grossWeightNum,
+      tareWeight: tareWeightNum,
+      quantityTons: netWeight,
       status: formData.status,
-      departureTime: formData.departureTime, // This is already in the correct format
+      departureTime: formData.departureTime,
       arrivalTime: formData.arrivalTime || null,
       remarks: formData.remarks,
       routeId: formData.routeId || undefined,
