@@ -1,4 +1,3 @@
-import React from "react";
 import { Helmet } from "react-helmet";
 import PageTransition from "@/components/ui-custom/PageTransition";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
@@ -24,7 +23,6 @@ import {
 import {
   Plus,
   Edit,
-  Trash,
   MapPin,
   FileText,
   DollarSign,
@@ -34,7 +32,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useRoutes } from "@/hooks/use-routes";
 import { useAuth } from "@/context/AuthContext";
 import { Column } from "@/types/data-table";
-import { usePackages } from "@/hooks/use-packages";
 import {
   Select,
   SelectContent,
@@ -57,9 +54,7 @@ const RoutesPage = () => {
     handleEditRoute,
     handleAddRoute,
     handleSubmit,
-    handleDeleteRoute,
     isSubmitting,
-    isDeleting,
   } = useRoutes();
 
   const { packages, activePackages } = useShipments();

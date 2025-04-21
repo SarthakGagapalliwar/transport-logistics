@@ -130,19 +130,6 @@ export const DataTable = <T extends Record<string, any>>({
   };
 
   // Function to get unique values for a column
-  const getUniqueColumnValues = (accessorKey: string): string[] => {
-    if (!data || data.length === 0) return [];
-    
-    const values = data
-      .map(item => {
-        const value = getItemValue(item, accessorKey);
-        return value !== undefined && value !== null ? String(value) : null;
-      })
-      .filter((value): value is string => value !== null && value !== undefined);
-    
-    // Remove duplicates
-    return Array.from(new Set(values)).sort();
-  };
 
   // Toggle a filter value
   const toggleFilter = (accessorKey: string, value: string) => {
@@ -163,16 +150,6 @@ export const DataTable = <T extends Record<string, any>>({
   };
 
   // Clear all filters for a column
-  const clearColumnFilter = (accessorKey: string) => {
-    setColumnFilters(prev => {
-      const newFilters = { ...prev };
-      delete newFilters[accessorKey];
-      return newFilters;
-    });
-    
-    // Reset to page 1 when filter changes
-    setCurrentPage(1);
-  };
 
   // Helper function to render the header content based on its type
   const renderHeader = (header: Column['header'], column: Column) => {
@@ -183,10 +160,6 @@ export const DataTable = <T extends Record<string, any>>({
     // If column has accessorKey, make it filterable
     const accessorKey = column.accessorKey;
     if (accessorKey) {
-      const displayName = typeof header === 'string' ? header : String(accessorKey);
-      const uniqueValues = getUniqueColumnValues(accessorKey);
-      const activeFilters = columnFilters[accessorKey] || [];
-      const isFiltered = activeFilters.length > 0;
       
       return (
         <div className="flex items-center space-x-2">

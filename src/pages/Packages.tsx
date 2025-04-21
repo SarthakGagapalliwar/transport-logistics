@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -16,7 +16,6 @@ import PageTransition from "@/components/ui-custom/PageTransition";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
 
 const Packages = () => {
   const { user } = useAuth();
@@ -26,13 +25,18 @@ const Packages = () => {
     isLoading, 
     openDialog, 
     setOpenDialog, 
-    selectedPackage, 
     handleAddPackage, 
     handleEditPackage,
     updatePackageMutation
   } = usePackages();
   
-  const handleToggleActive = async (pkg: any) => {
+  // Keep a stable sort order based on name
+  const sortedPackages = useMemo(() => {
+    if (!packages) return [];
+    return [...packages].sort((a, b) => a.name.localeCompare(b.name));
+  }, [packages]);
+  
+  const handleToggleActive = async (pkg) => {
     updatePackageMutation.mutate({
       id: pkg.id,
       name: pkg.name,
@@ -45,7 +49,7 @@ const Packages = () => {
     {
       header: "Status",
       accessorKey: "active",
-      cell: (item: any) => {
+      cell: (item) => {
         // Defensive check to make sure item exists
         if (!item) return null;
         
@@ -66,7 +70,7 @@ const Packages = () => {
     {
       header: "Actions",
       accessorKey: "actions",
-      cell: (item: any) => {
+      cell: (item) => {
         // Defensive check to make sure item exists
         if (!item) return null;
         
@@ -115,7 +119,7 @@ const Packages = () => {
             </CardHeader>
             <CardContent>
               <DataTable
-                data={packages}
+                data={sortedPackages}
                 columns={columns}
                 searchPlaceholder="Search packages..."
                 searchKey="name"
