@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { 
   Card, 
@@ -46,17 +45,19 @@ const Packages = () => {
     {
       header: "Status",
       accessorKey: "active",
-      cell: (info: any) => {
-        const pkg = info.row.original;
+      cell: (item: any) => {
+        // Defensive check to make sure item exists
+        if (!item) return null;
+        
         return (
           <div className="flex items-center space-x-2">
             <Switch
-              checked={pkg.active}
-              onCheckedChange={() => handleToggleActive(pkg)}
+              checked={item.active}
+              onCheckedChange={() => handleToggleActive(item)}
               disabled={updatePackageMutation.isPending}
             />
             <span className="text-sm text-muted-foreground">
-              {pkg.active ? "Active" : "Inactive"}
+              {item.active ? "Active" : "Inactive"}
             </span>
           </div>
         );
@@ -65,13 +66,18 @@ const Packages = () => {
     {
       header: "Actions",
       accessorKey: "actions",
-      cell: (info: any) => (
-        <div className="flex space-x-2">
-          <Button variant="ghost" size="icon" onClick={() => handleEditPackage(info.row.original)}>
-            <Pencil className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
+      cell: (item: any) => {
+        // Defensive check to make sure item exists
+        if (!item) return null;
+        
+        return (
+          <div className="flex space-x-2">
+            <Button variant="ghost" size="icon" onClick={() => handleEditPackage(item)}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 
