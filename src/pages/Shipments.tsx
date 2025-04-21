@@ -68,6 +68,8 @@ const Shipments = () => {
     packages,
     materials,
     isSubmitting,
+    activePackages,
+    activeTransporters
   } = useShipments();
 
   const isMobile = useIsMobile();
@@ -340,7 +342,7 @@ const Shipments = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">None</SelectItem>
-                          {packages.map((pkg) => (
+                          {activePackages.map((pkg) => (
                             <SelectItem key={pkg.id} value={pkg.id}>
                               {pkg.name}
                             </SelectItem>
@@ -455,7 +457,7 @@ const Shipments = () => {
                         <SelectValue placeholder="Select transporter" />
                       </SelectTrigger>
                       <SelectContent>
-                        {transporters.map((transporter) => (
+                        {activeTransporters.map((transporter) => (
                           <SelectItem
                             key={transporter.id}
                             value={transporter.id}
