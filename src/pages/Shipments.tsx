@@ -240,7 +240,7 @@ const Shipments = () => {
               <h1 className="text-3xl font-bold tracking-tight">Shipments</h1>
               <p className="text-muted-foreground">
                 {user?.role === 'admin' 
-                  ? "Manage and track all coal shipments" 
+                  ? "Manage and track all shipments" 
                   : "View and track your assigned shipments"}
               </p>
             </div>
@@ -254,7 +254,7 @@ const Shipments = () => {
               <CardTitle>Shipments List</CardTitle>
               <CardDescription>
                 {user?.role === 'admin' 
-                  ? "View and manage all coal shipments" 
+                  ? "View and manage all shipments" 
                   : "View shipments assigned to you"}
               </CardDescription>
             </CardHeader>

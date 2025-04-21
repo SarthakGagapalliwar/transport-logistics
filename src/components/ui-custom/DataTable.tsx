@@ -52,7 +52,7 @@ export const DataTable = <T extends Record<string, any>>({
   const [currentPage, setCurrentPage] = useState(1);
   const [columnFilters, setColumnFilters] = useState<Record<string, string[]>>({});
   const [filterPopoverOpen, setFilterPopoverOpen] = useState<Record<string, boolean>>({});
-  const itemsPerPage = 8;
+  const itemsPerPage = 10;
 
   // Helper function to get value from an item by key (handles nested keys like "user.name")
   const getItemValue = (item: T, key: string | keyof T) => {

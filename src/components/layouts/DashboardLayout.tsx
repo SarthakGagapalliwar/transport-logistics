@@ -120,7 +120,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         <div className="p-4 border-b border-gray-200">
           <h1 className="text-xl font-bold">Transport</h1>
           {user && (
-            <p className="text-sm text-gray-500">Welcome,{user.username}</p>
+            <p className="text-sm text-gray-500">Welcome, {user.username}</p>
           )}
         </div>
         <nav className="flex-1 overflow-y-auto p-4">

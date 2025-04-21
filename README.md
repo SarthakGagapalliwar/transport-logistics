@@ -3,13 +3,13 @@
 
 *April 2025*
 
-• Coal Industry Management Platform – A comprehensive logistics management system designed for the coal industry, where users can track shipments, manage transporters, vehicles, and gain valuable insights through analytics.
+• Coal Industry Management Platform – A comprehensive logistics management system designed for the industry, where users can track shipments, manage transporters, vehicles, and gain valuable insights through analytics.
 
 • Built with Modern Tech Stack – Developed using React, TypeScript, Supabase, and Tailwind CSS to ensure a responsive, secure, and efficient user experience, including features like transporter management and real-time shipment tracking.
 
 • Secure Authentication – Implements robust email and password authentication to protect sensitive logistics data and operations.
 
-• Industry-Specific Design – Tailored specifically for coal transportation operations, ensuring all features address the unique challenges of the coal logistics sector.
+• Industry-Specific Design – Tailored specifically for transportation operations, ensuring all features address the unique challenges of the logistics sector.
 
 ## Project info
 

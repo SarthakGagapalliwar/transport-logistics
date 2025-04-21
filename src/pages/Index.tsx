@@ -55,7 +55,7 @@ const Index = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            A comprehensive logistics management platform designed for the coal industry. Manage transporters, vehicles, shipments and more from a single dashboard.
+            A comprehensive logistics management platform designed for the transport industry. Manage transporters, vehicles, shipments and more from a single dashboard.
           </motion.p>
           
           <motion.div
@@ -137,7 +137,7 @@ const Index = () => {
                 <Truck className="h-6 w-6" />
                 <h2 className="text-xl font-bold">Transport</h2>
               </div>
-              <p className="mt-2 text-gray-400">Streamlining coal transportation operations</p>
+              <p className="mt-2 text-gray-400">Streamlining transportation operations</p>
             </div>
             
             <div className="flex gap-8">
