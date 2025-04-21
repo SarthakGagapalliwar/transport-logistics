@@ -76,6 +76,8 @@ const Reports = () => {
           destination,
           quantity_tons,
           departure_time,
+          gross_weight,
+          tare_weight,
           transporters:transporter_id (name),
           vehicles:vehicle_id (vehicle_number),
           packages:package_id (name),
@@ -92,6 +94,8 @@ const Reports = () => {
         const billingRate = shipment.routes?.billing_rate_per_ton || 0;
         const vendorRate = shipment.routes?.vendor_rate_per_ton || 0;
         const quantity = parseFloat(shipment.quantity_tons) || 0;
+        const grossWeight = parseFloat(shipment.gross_weight) || 0;
+        const tareWeight = parseFloat(shipment.tare_weight) || 0;
         
         const billingAmount = billingRate * quantity;
         const vendorAmount = vendorRate * quantity;
@@ -99,6 +103,8 @@ const Reports = () => {
         
         return {
           ...shipment,
+          gross_weight: grossWeight,
+          tare_weight: tareWeight,
           billing_amount: billingAmount,
           vendor_amount: vendorAmount,
           profit: profit
@@ -144,6 +150,8 @@ const Reports = () => {
           destination,
           quantity_tons,
           departure_time,
+          gross_weight,
+          tare_weight,
           transporters:transporter_id (name),
           vehicles:vehicle_id (vehicle_number),
           packages:package_id (name),
@@ -156,7 +164,18 @@ const Reports = () => {
         throw new Error(error.message);
       }
       
-      setShipmentReports(data || []);
+      const processedData = data?.map(shipment => {
+        const grossWeight = parseFloat(shipment.gross_weight) || 0;
+        const tareWeight = parseFloat(shipment.tare_weight) || 0;
+        
+        return {
+          ...shipment,
+          gross_weight: grossWeight,
+          tare_weight: tareWeight
+        };
+      });
+      
+      setShipmentReports(processedData || []);
     } catch (err) {
       console.error('Error fetching user shipment reports:', err);
       toast.error(`Failed to fetch shipment reports: ${(err as Error).message}`);
@@ -264,6 +283,10 @@ const Reports = () => {
       }
       
       const formattedData = data.map(shipment => {
+        const grossWeight = parseFloat(shipment.gross_weight) || 0;
+        const tareWeight = parseFloat(shipment.tare_weight) || 0;
+        const netWeight = parseFloat(shipment.quantity_tons) || 0;
+        
         const baseFields = {
           'Package': shipment.packages?.name || 'N/A',
           'Source': shipment.source,
@@ -273,7 +296,9 @@ const Reports = () => {
           'Material': shipment.materials?.name || 'N/A',
           'Material Unit': shipment.materials?.unit || 'N/A',
           'Material Description': shipment.materials?.description || 'N/A',
-          'Quantity (Tons)': shipment.quantity_tons,
+          'Gross Weight (Tons)': grossWeight.toFixed(2),
+          'Tare Weight (Tons)': tareWeight.toFixed(2),
+          'Net Weight (Tons)': netWeight.toFixed(2),
           'Departure Time': format(parseISO(shipment.departure_time), 'PPP p'),
           'Remarks': shipment.remarks || '',
         };
@@ -292,9 +317,9 @@ const Reports = () => {
             'ID': shipment.id,
             'Billing Rate (₹/Ton)': billingRate,
             'Vendor Rate (₹/Ton)': vendorRate,
-            'Billing Amount (₹)': billingAmount,
-            'Vendor Amount (₹)': vendorAmount,
-            'Profit (₹)': profit,
+            'Billing Amount (₹)': billingAmount.toFixed(2),
+            'Vendor Amount (₹)': vendorAmount.toFixed(2),
+            'Profit (₹)': profit.toFixed(2),
           };
         }
         
@@ -353,12 +378,17 @@ const Reports = () => {
     {
       header: "Gross Weight (tons)",
       accessorKey: "gross_weight",
-      cell: (row: any) => row.gross_weight !== undefined && row.gross_weight !== null ? `${row.gross_weight} tons` : "N/A"
+      cell: (row: any) => row.gross_weight !== undefined ? `${parseFloat(row.gross_weight).toFixed(2)} tons` : "N/A"
+    },
+    {
+      header: "Tare Weight (tons)",
+      accessorKey: "tare_weight",
+      cell: (row: any) => row.tare_weight !== undefined ? `${parseFloat(row.tare_weight).toFixed(2)} tons` : "N/A"
     },
     {
       header: "Net Weight (tons)",
       accessorKey: "quantity_tons",
-      cell: (row: any) => row.quantity_tons !== undefined && row.quantity_tons !== null ? `${row.quantity_tons} tons` : "N/A"
+      cell: (row: any) => row.quantity_tons !== undefined ? `${parseFloat(row.quantity_tons).toFixed(2)} tons` : "N/A"
     },
     {
       header: "Departure Date",
@@ -408,12 +438,17 @@ const Reports = () => {
     {
       header: "Gross Weight (tons)",
       accessorKey: "gross_weight",
-      cell: (row: any) => row.gross_weight !== undefined && row.gross_weight !== null ? `${row.gross_weight} tons` : "N/A"
+      cell: (row: any) => row.gross_weight !== undefined ? `${parseFloat(row.gross_weight).toFixed(2)} tons` : "N/A"
+    },
+    {
+      header: "Tare Weight (tons)",
+      accessorKey: "tare_weight",
+      cell: (row: any) => row.tare_weight !== undefined ? `${parseFloat(row.tare_weight).toFixed(2)} tons` : "N/A"
     },
     {
       header: "Net Weight (tons)",
       accessorKey: "quantity_tons",
-      cell: (row: any) => row.quantity_tons !== undefined && row.quantity_tons !== null ? `${row.quantity_tons} tons` : "N/A"
+      cell: (row: any) => row.quantity_tons !== undefined ? `${parseFloat(row.quantity_tons).toFixed(2)} tons` : "N/A"
     },
     {
       header: "Departure Date",
@@ -624,7 +659,21 @@ const Reports = () => {
                           )}
                           <TableCell>{shipment.transporters?.name || 'Unknown'}</TableCell>
                           <TableCell>{shipment.vehicles?.vehicle_number || 'Unknown'}</TableCell>
-                          <TableCell>{shipment.quantity_tons} tons</TableCell>
+                          <TableCell>
+                            {shipment.gross_weight !== undefined && shipment.gross_weight !== null 
+                              ? `${parseFloat(shipment.gross_weight).toFixed(2)} tons` 
+                              : "N/A"}
+                          </TableCell>
+                          <TableCell>
+                            {shipment.tare_weight !== undefined && shipment.tare_weight !== null 
+                              ? `${parseFloat(shipment.tare_weight).toFixed(2)} tons` 
+                              : "N/A"}
+                          </TableCell>
+                          <TableCell>
+                            {shipment.quantity_tons !== undefined && shipment.quantity_tons !== null 
+                              ? `${parseFloat(shipment.quantity_tons).toFixed(2)} tons` 
+                              : "N/A"}
+                          </TableCell>
                           <TableCell>{format(parseISO(shipment.departure_time), 'PPP')}</TableCell>
                           
                           {isAdmin && (
