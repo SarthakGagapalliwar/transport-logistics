@@ -30,6 +30,8 @@ export interface Shipment {
   billingRatePerTon?: number;
   vendorRatePerTon?: number;
   created_at?: string;
+  grossWeight?: number;
+  tareWeight?: number;
 }
 
 const dbToAppShipment = (dbShipment: DbShipment): Shipment => ({
@@ -47,6 +49,8 @@ const dbToAppShipment = (dbShipment: DbShipment): Shipment => ({
   packageId: dbShipment.package_id,
   materialId: dbShipment.material_id,
   created_at: dbShipment.created_at,
+  grossWeight: dbShipment.gross_weight ? Number(dbShipment.gross_weight) : undefined,
+  tareWeight: dbShipment.tare_weight ? Number(dbShipment.tare_weight) : undefined,
 });
 
 const appToDbShipment = (shipment: Partial<Shipment>) => ({
@@ -68,6 +72,8 @@ const appToDbShipment = (shipment: Partial<Shipment>) => ({
     shipment.materialId && shipment.materialId !== "none"
       ? shipment.materialId
       : null,
+  gross_weight: shipment.grossWeight,
+  tare_weight: shipment.tareWeight,
 });
 
 export const fetchShipments = async (

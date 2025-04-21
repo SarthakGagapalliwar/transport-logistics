@@ -243,6 +243,8 @@ export type DbShipment = {
   route_id?: string;
   package_id?: string;
   material_id?: string;
+  gross_weight?: number;  // Added this property
+  tare_weight?: number;   // Added this property
 };
 
 export type DbMaterial = {
