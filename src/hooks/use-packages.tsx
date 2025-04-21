@@ -66,8 +66,6 @@ export const usePackages = () => {
     queryFn: async () => {
       if (!user || !isAdmin) return [];
       
-      console.log("Fetching all users for admin assignment");
-      
       // Using the new RLS policy, admin can fetch all profiles
       const { data, error } = await supabase
         .from('profiles')
@@ -78,9 +76,6 @@ export const usePackages = () => {
         toast.error(`Failed to fetch users: ${error.message}`);
         return [];
       }
-      
-      console.log("Users fetched for assignment:", data);
-      console.log("Total users found:", data ? data.length : 0);
       return data || [];
     },
     enabled: !!user && isAdmin
@@ -107,8 +102,6 @@ export const usePackages = () => {
         ...appToDbPackage(newPackage),
         created_by_id: user.id
       };
-      
-      console.log("Adding package with data:", packageData);
       
       const { data, error } = await supabase
         .from('packages')
@@ -139,8 +132,6 @@ export const usePackages = () => {
       
       // Convert to DB format for the update operation
       const dbData = appToDbPackage(rest);
-      
-      console.log("Updating package with ID:", id, "Data:", dbData);
       
       const { data, error } = await supabase
         .from('packages')
@@ -191,7 +182,6 @@ export const usePackages = () => {
 
   // Handle edit package
   const handleEditPackage = (pkg: Package) => {
-    console.log("Setting selected package for edit:", pkg);
     setSelectedPackage(pkg);
     setOpenDialog(true);
   };

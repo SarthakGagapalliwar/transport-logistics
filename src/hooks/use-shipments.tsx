@@ -214,8 +214,6 @@ export const useShipments = () => {
       try {
         const shipmentData = appToDbShipment(shipment);
 
-        console.log("Creating shipment with data:", shipmentData);
-
         if (!shipmentData.transporter_id) {
           throw new Error("Transporter is required");
         }
@@ -273,9 +271,6 @@ export const useShipments = () => {
     mutationFn: async (shipment: Shipment) => {
       try {
         const shipmentData = appToDbShipment(shipment);
-
-        console.log("Updating shipment with data:", shipmentData);
-        console.log("Shipment ID:", shipment.id);
 
         if (!shipmentData.transporter_id) {
           throw new Error("Transporter is required");

@@ -79,8 +79,6 @@ export const processFinancialData = (
     routesBySourceDest[key] = route;
   });
   
-  console.log('Processing shipments for revenue data:', shipments.length);
-  
   // Create a set to keep track of months we've seen
   const seenMonths = new Set<string>();
   
@@ -116,8 +114,6 @@ export const processFinancialData = (
     const revenue = parseFloat((quantity * billingRate).toFixed(2));
     const cost = parseFloat((quantity * vendorRate).toFixed(2));
     const profit = parseFloat((revenue - cost).toFixed(2));
-    
-    console.log(`Calculated for shipment ${shipment.id}: revenue=${revenue}, cost=${cost}, profit=${profit}`);
     
     // Get the month from the shipment's departure_time instead of created_at
     // as it represents when the service was actually rendered
@@ -157,8 +153,6 @@ export const processFinancialData = (
     monthlyData[month].revenue += revenue;
     monthlyData[month].cost += cost;
     monthlyData[month].profit += profit;
-    
-    console.log(`Added financial data to month ${month}: revenue=${revenue}, cost=${cost}, profit=${profit}`);
   });
   
   // Fill in any missing months in the last 6 months to ensure consistent display
@@ -190,8 +184,6 @@ export const processFinancialData = (
     
     return adjustedAIndex - adjustedBIndex;
   });
-  
-  console.log('Processed revenue data:', revenueData);
   
   return {
     revenueData,
@@ -317,7 +309,6 @@ export const calculateDashboardStats = (
 
 // Fetch all the data needed for analytics
 export const fetchAnalyticsData = async () => {
-  console.log('Fetching analytics data...');
   
   try {
     // First get all the routes to have rate information
@@ -341,8 +332,6 @@ export const fetchAnalyticsData = async () => {
       };
     });
     
-    console.log('Routes map created:', Object.keys(routesMap).length, 'routes');
-    
     // Get all shipments 
     const { data: shipments, error: shipmentsError } = await supabase
       .from('shipments')
@@ -352,8 +341,6 @@ export const fetchAnalyticsData = async () => {
       console.error('Error fetching shipments:', shipmentsError);
       throw shipmentsError;
     }
-    
-    console.log('Shipments fetched:', shipments?.length);
     
     // Get count of transporters
     const { count: transportersCount, error: transportersError } = await supabase
@@ -386,7 +373,6 @@ export const fetchAnalyticsData = async () => {
     const hasValidData = shipments?.length && Object.keys(routesMap).length;
     
     if (!hasValidData) {
-      console.log('No proper data found, creating sample data for visualization');
       const sampleData = createSampleMonthlyData();
       revenueData = sampleData.revenueData;
       currentMonthRevenue = sampleData.currentMonthRevenue;
@@ -397,7 +383,6 @@ export const fetchAnalyticsData = async () => {
       
       // If we still couldn't generate any revenue data, fall back to sample data
       if (financialData.revenueData.length === 0) {
-        console.log('Failed to generate revenue data from actual shipments, using sample data');
         const sampleData = createSampleMonthlyData();
         revenueData = sampleData.revenueData;
         currentMonthRevenue = sampleData.currentMonthRevenue;
@@ -410,8 +395,6 @@ export const fetchAnalyticsData = async () => {
         previousMonthShipments = financialData.previousMonthShipments;
       }
     }
-    
-    console.log('Final revenue data being returned:', revenueData);
     
     // Process shipment status data
     const shipmentStatusData = processShipmentStatusData(shipments || []);

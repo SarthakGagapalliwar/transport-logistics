@@ -34,7 +34,6 @@ const appToDbTransporter = (transporter: Partial<Transporter>) => ({
 
 // Isolate the data fetching function to avoid circular dependencies
 export const fetchTransporters = async () => {
-  console.log('Fetching transporters...');
   const { data, error } = await supabase
     .from('transporters')
     .select('*')
@@ -44,8 +43,7 @@ export const fetchTransporters = async () => {
     console.error('Error fetching transporters:', error);
     throw new Error(error.message);
   }
-  
-  console.log('Transporters fetched:', data);
+
   return (data as DbTransporter[]).map(dbToAppTransporter);
 };
 
@@ -76,7 +74,6 @@ export const useTransporters = () => {
   // Mutation to add a new transporter
   const addTransporterMutation = useMutation({
     mutationFn: async (transporter: Omit<Transporter, 'id'>) => {
-      console.log('Adding transporter:', transporter);
       try {
         const { data, error } = await supabase
           .from('transporters')
@@ -89,7 +86,6 @@ export const useTransporters = () => {
           throw new Error(error.message);
         }
         
-        console.log('Transporter added, response:', data);
         return dbToAppTransporter(data as DbTransporter);
       } catch (error) {
         console.error('Error adding transporter:', error);
@@ -115,7 +111,6 @@ export const useTransporters = () => {
   // Mutation to update a transporter
   const updateTransporterMutation = useMutation({
     mutationFn: async (transporter: Transporter) => {
-      console.log('Updating transporter:', transporter);
       const { error } = await supabase
         .from('transporters')
         .update(appToDbTransporter(transporter))
@@ -146,7 +141,6 @@ export const useTransporters = () => {
   // Mutation to delete a transporter
   const deleteTransporterMutation = useMutation({
     mutationFn: async (id: string) => {
-      console.log('Deleting transporter:', id);
       const { error } = await supabase
         .from('transporters')
         .delete()

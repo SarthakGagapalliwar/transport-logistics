@@ -43,7 +43,6 @@ const PackageForm = () => {
   // Update form when selectedPackage changes
   useEffect(() => {
     if (selectedPackage) {
-      console.log("Setting form values with selected package:", selectedPackage);
       form.reset({
         name: selectedPackage.name,
       });
@@ -60,13 +59,11 @@ const PackageForm = () => {
     };
 
     if (selectedPackage) {
-      console.log("Updating package with ID:", selectedPackage.id, "New values:", packageData);
       updatePackageMutation.mutate({
         id: selectedPackage.id,
         ...packageData,
       });
     } else {
-      console.log("Adding new package:", packageData);
       addPackageMutation.mutate(packageData);
     }
   };

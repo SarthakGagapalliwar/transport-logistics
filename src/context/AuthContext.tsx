@@ -135,7 +135,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     
     try {
-      console.log("Attempting signup with:", { email, username });
       
       // 1. Register user in Supabase Auth
       const { data, error } = await supabase.auth.signUp({
@@ -193,7 +192,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Create user function (for admin use)
   const createUser = async (email: string, password: string, username: string, role: UserRole): Promise<boolean> => {
     try {
-      console.log("Creating new user with:", { email, username, role });
       
       // 1. Register user in Supabase Auth using regular signup
       const { data, error } = await supabase.auth.signUp({

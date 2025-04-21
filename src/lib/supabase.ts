@@ -52,12 +52,8 @@ const createMockClient = () => {
       // Create a chainable API for mock data operations
       const chainObj = {
         select: (columns = "*") => {
-          console.log(`[MOCK] Selecting from ${table}`);
 
           const mockData = mockStorage[table] || [];
-          console.log(
-            `[MOCK] Returning ${mockData.length} items from ${table}`
-          );
 
           return {
             eq: (column, value) => ({
@@ -77,7 +73,6 @@ const createMockClient = () => {
           };
         },
         insert: (data) => {
-          console.log(`[MOCK] Inserting into ${table}:`, data);
 
           // Generate a mock ID if not provided
           const newItem = { 
@@ -91,10 +86,6 @@ const createMockClient = () => {
             mockStorage[table] = [];
           }
           mockStorage[table].push(newItem);
-
-          console.log(
-            `[MOCK] ${table} now has ${mockStorage[table].length} items`
-          );
 
           // Add chainable select method to insert
           const insertObj = {
@@ -114,10 +105,6 @@ const createMockClient = () => {
         update: (data) => {
           return {
             eq: (column, value) => {
-              console.log(
-                `[MOCK] Updating ${table} where ${column} = ${value}:`,
-                data
-              );
 
               if (mockStorage[table]) {
                 const index = mockStorage[table].findIndex(
@@ -148,15 +135,11 @@ const createMockClient = () => {
         delete: () => {
           return {
             eq: (column, value) => {
-              console.log(
-                `[MOCK] Deleting from ${table} where ${column} = ${value}`
-              );
 
               if (mockStorage[table]) {
                 const initialLength = mockStorage[table].length;
                 const deletedItem = mockStorage[table].find(item => item[column] === value);
                 mockStorage[table] = mockStorage[table].filter(item => item[column] !== value);
-                console.log(`[MOCK] Deleted ${initialLength - mockStorage[table].length} items`);
                 
                 return Promise.resolve({ 
                   data: deletedItem || null, 
