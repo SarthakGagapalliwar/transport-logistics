@@ -66,10 +66,6 @@ const Vehicles = () => {
 
   const columns = [
     {
-      header: "ID",
-      accessorKey: "id",
-    },
-    {
       header: "Vehicle Number",
       accessorKey: "vehicleNumber",
     },

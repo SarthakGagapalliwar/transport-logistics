@@ -57,10 +57,6 @@ const Transporters = () => {
   // Columns for the data table
   const columns: Column[] = [
     {
-      header: "ID",
-      accessorKey: "id",
-    },
-    {
       header: "Name",
       accessorKey: "name",
     },
@@ -99,7 +95,7 @@ const Transporters = () => {
   const mobileColumns = isMobile
     ? columns.filter((col) => {
         if (typeof col.header === 'string') {
-          return ["ID", "Name", "Actions"].includes(col.header);
+          return ["Name", "Actions"].includes(col.header);
         }
         return false;
       })

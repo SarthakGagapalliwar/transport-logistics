@@ -51,10 +51,6 @@ const Dashboard = () => {
   // Responsive columns for shipment table
   const shipmentColumns: Column[] = [
     {
-      header: "ID",
-      accessorKey: "id",
-    },
-    {
       header: "Transporter",
       accessorKey: "transporterName",
     },
@@ -89,7 +85,7 @@ const Dashboard = () => {
   const mobileShipmentColumns = isMobile
     ? shipmentColumns.filter((col) => {
         if (typeof col.header === 'string') {
-          return ["ID", "Transporter"].includes(col.header);
+          return ["Transporter"].includes(col.header);
         }
         return false;
       })

@@ -68,10 +68,6 @@ const RoutesPage = () => {
   // Columns for the data table
   const columns: Column[] = [
     {
-      header: "ID",
-      accessorKey: "id",
-    },
-    {
       header: "Origin",
       accessorKey: "source",
     },
@@ -133,7 +129,7 @@ const RoutesPage = () => {
   const mobileColumns = isMobile
     ? columns.filter((col) => {
         if (typeof col.header === "string") {
-          return ["ID", "Origin", "Destination", "Actions"].includes(
+          return ["Origin", "Destination", "Actions"].includes(
             col.header
           );
         }
