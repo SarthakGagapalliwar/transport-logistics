@@ -166,12 +166,14 @@ const Shipments = () => {
     {
       header: "Gross Weight",
       accessorKey: "grossWeight",
-      cell: (row: any) => row.grossWeight !== undefined ? `${row.grossWeight} tons` : "N/A",
+      cell: (row: any) =>
+        row.grossWeight !== undefined ? `${row.grossWeight} tons` : "N/A",
     },
     {
       header: "Tare Weight",
       accessorKey: "tareWeight",
-      cell: (row: any) => row.tareWeight !== undefined ? `${row.tareWeight} tons` : "N/A",
+      cell: (row: any) =>
+        row.tareWeight !== undefined ? `${row.tareWeight} tons` : "N/A",
     },
     {
       header: "Quantity",

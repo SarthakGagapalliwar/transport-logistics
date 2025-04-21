@@ -30,8 +30,8 @@ export interface Shipment {
   billingRatePerTon?: number;
   vendorRatePerTon?: number;
   created_at?: string;
-  grossWeight?: number;
-  tareWeight?: number;
+  grossWeight: number;
+  tareWeight: number;
 }
 
 const dbToAppShipment = (dbShipment: DbShipment): Shipment => ({
@@ -49,8 +49,8 @@ const dbToAppShipment = (dbShipment: DbShipment): Shipment => ({
   packageId: dbShipment.package_id,
   materialId: dbShipment.material_id,
   created_at: dbShipment.created_at,
-  grossWeight: dbShipment.gross_weight ? Number(dbShipment.gross_weight) : undefined,
-  tareWeight: dbShipment.tare_weight ? Number(dbShipment.tare_weight) : undefined,
+  grossWeight: Number(dbShipment.gross_weight) || 0,
+  tareWeight: Number(dbShipment.tare_weight) || 0,
 });
 
 const appToDbShipment = (shipment: Partial<Shipment>) => ({
@@ -371,17 +371,16 @@ export const useShipments = () => {
 
   const handleEditShipment = (shipment: Shipment) => {
     setSelectedShipment(shipment);
+
     let departureTimeFormatted = "";
     if (shipment.departureTime) {
       try {
         const departureDate = new Date(shipment.departureTime);
-
         const year = departureDate.getUTCFullYear();
         const month = String(departureDate.getUTCMonth() + 1).padStart(2, "0");
         const day = String(departureDate.getUTCDate()).padStart(2, "0");
         const hours = String(departureDate.getUTCHours()).padStart(2, "0");
         const minutes = String(departureDate.getUTCMinutes()).padStart(2, "0");
-
         departureTimeFormatted = `${year}-${month}-${day}T${hours}:${minutes}`;
       } catch (error) {
         console.error("Error formatting departure time:", error);
@@ -399,17 +398,13 @@ export const useShipments = () => {
       }
     }
 
-    // For backward compatibility (for old shipments without these fields)
-    const grossWeight = shipment.grossWeight ?? "";
-    const tareWeight = shipment.tareWeight ?? "";
-
     setFormData({
       transporterId: shipment.transporterId,
       vehicleId: shipment.vehicleId,
       source: shipment.source,
       destination: shipment.destination,
-      grossWeight: grossWeight?.toString() ?? "",
-      tareWeight: tareWeight?.toString() ?? "",
+      grossWeight: shipment.grossWeight !== undefined ? shipment.grossWeight.toString() : "",
+      tareWeight: shipment.tareWeight !== undefined ? shipment.tareWeight.toString() : "",
       quantityTons: shipment.quantityTons.toString(),
       status: shipment.status,
       departureTime: departureTimeFormatted,

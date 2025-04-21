@@ -318,7 +318,6 @@ const Reports = () => {
   };
 
   const regularUserColumns = [
-    // Add ID column first
     {
       header: "ID",
       accessorKey: "id"
@@ -352,9 +351,14 @@ const Reports = () => {
       cell: (row: any) => row.vehicles?.vehicle_number || 'Unknown'
     },
     {
-      header: "Quantity",
+      header: "Gross Weight (tons)",
+      accessorKey: "gross_weight",
+      cell: (row: any) => row.gross_weight !== undefined && row.gross_weight !== null ? `${row.gross_weight} tons` : "N/A"
+    },
+    {
+      header: "Net Weight (tons)",
       accessorKey: "quantity_tons",
-      cell: (row: any) => `${row.quantity_tons} tons`
+      cell: (row: any) => row.quantity_tons !== undefined && row.quantity_tons !== null ? `${row.quantity_tons} tons` : "N/A"
     },
     {
       header: "Departure Date",
@@ -364,7 +368,6 @@ const Reports = () => {
   ];
 
   const adminColumns = [
-    // Add ID column first
     {
       header: "ID",
       accessorKey: "id",
@@ -403,9 +406,14 @@ const Reports = () => {
       cell: (row: any) => row.vehicles?.vehicle_number || 'Unknown'
     },
     {
-      header: "Quantity",
+      header: "Gross Weight (tons)",
+      accessorKey: "gross_weight",
+      cell: (row: any) => row.gross_weight !== undefined && row.gross_weight !== null ? `${row.gross_weight} tons` : "N/A"
+    },
+    {
+      header: "Net Weight (tons)",
       accessorKey: "quantity_tons",
-      cell: (row: any) => `${row.quantity_tons} tons`
+      cell: (row: any) => row.quantity_tons !== undefined && row.quantity_tons !== null ? `${row.quantity_tons} tons` : "N/A"
     },
     {
       header: "Departure Date",

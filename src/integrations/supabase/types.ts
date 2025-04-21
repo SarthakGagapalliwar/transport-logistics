@@ -166,6 +166,7 @@ export type Database = {
           created_at: string
           departure_time: string
           destination: string
+          gross_weight: number | null
           id: string
           material_id: string | null
           package_id: string | null
@@ -174,6 +175,7 @@ export type Database = {
           route_id: string | null
           source: string
           status: string
+          tare_weight: number | null
           transporter_id: string
           updated_at: string
           vehicle_id: string
@@ -183,6 +185,7 @@ export type Database = {
           created_at?: string
           departure_time: string
           destination: string
+          gross_weight?: number | null
           id?: string
           material_id?: string | null
           package_id?: string | null
@@ -191,6 +194,7 @@ export type Database = {
           route_id?: string | null
           source: string
           status?: string
+          tare_weight?: number | null
           transporter_id: string
           updated_at?: string
           vehicle_id: string
@@ -200,6 +204,7 @@ export type Database = {
           created_at?: string
           departure_time?: string
           destination?: string
+          gross_weight?: number | null
           id?: string
           material_id?: string | null
           package_id?: string | null
@@ -208,6 +213,7 @@ export type Database = {
           route_id?: string | null
           source?: string
           status?: string
+          tare_weight?: number | null
           transporter_id?: string
           updated_at?: string
           vehicle_id?: string
