@@ -63,10 +63,13 @@ export const useVehicles = () => {
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   
   // Use separate queries for transporters and vehicles
-  const { data: transporters = [] } = useQuery({
+  const { data: allTransporters = [] } = useQuery({
     queryKey: ['transporters'],
     queryFn: fetchTransporters
   });
+  
+  // Filter out inactive transporters
+  const transporters = allTransporters.filter(t => t.active);
   
   const [formData, setFormData] = useState({
     transporterId: '',
