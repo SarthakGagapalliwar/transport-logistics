@@ -34,6 +34,8 @@ const Reports = () => {
   const [isLoadingShipments, setIsLoadingShipments] = useState(false);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
   const isAdmin = user?.role === 'admin';
   
   const totalRevenue = revenueData.reduce((sum, item) => sum + item.revenue, 0);
@@ -526,6 +528,11 @@ const Reports = () => {
   }
 
   const sortedShipments = getSortedShipments();
+  const pageCount = Math.ceil(sortedShipments.length / pageSize);
+  const pagedShipments = sortedShipments.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   return (
     <DashboardLayout>
@@ -637,7 +644,7 @@ const Reports = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sortedShipments.length === 0 ? (
+                    {pagedShipments.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={isAdmin ? adminColumns.length : regularUserColumns.length} className="h-24 text-center">
                           {isAdmin
@@ -647,7 +654,7 @@ const Reports = () => {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      sortedShipments.map((shipment) => (
+                      pagedShipments.map((shipment) => (
                         <TableRow key={shipment.id}>
                           <TableCell>{shipment.id}</TableCell>
                           <TableCell>{shipment.packages?.name || 'N/A'}</TableCell>
@@ -716,6 +723,27 @@ const Reports = () => {
                     )}
                   </TableBody>
                 </Table>
+                <div className="flex justify-center items-center mt-6 gap-4">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm">
+                    Page {currentPage} of {pageCount}
+                  </span>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={currentPage === pageCount || pageCount === 0}
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, pageCount))}
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

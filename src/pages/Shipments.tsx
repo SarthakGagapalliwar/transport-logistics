@@ -37,6 +37,7 @@ import {
   Calendar,
   Package,
   Beaker,
+  Trash2,
 } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -60,6 +61,7 @@ const Shipments = () => {
     handleEditShipment,
     handleAddShipment,
     handleSubmit,
+    handleDeleteShipment,
     transporters,
     vehicles,
     routes,
@@ -212,8 +214,25 @@ const Shipments = () => {
             variant="outline"
             size="icon"
             onClick={() => handleEditShipment(row)}
+            aria-label="Edit shipment"
           >
             <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="destructive"
+            size="icon"
+            onClick={() => {
+              if (
+                window.confirm(
+                  `Are you sure you want to delete the shipment from ${row.source} to ${row.destination}?`
+                )
+              ) {
+                handleDeleteShipment(row.id);
+              }
+            }}
+            aria-label="Delete shipment"
+          >
+            <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       ),

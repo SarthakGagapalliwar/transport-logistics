@@ -527,6 +527,10 @@ export const useShipments = () => {
   const isSubmitting =
     addShipmentMutation.isPending || updateShipmentMutation.isPending;
 
+  const handleDeleteShipment = (id: string) => {
+    deleteShipmentMutation.mutate(id);
+  };
+
   return {
     shipments,
     isLoading,
@@ -547,5 +551,6 @@ export const useShipments = () => {
     routes,
     packages,
     materials,
+    handleDeleteShipment,
   };
 };
