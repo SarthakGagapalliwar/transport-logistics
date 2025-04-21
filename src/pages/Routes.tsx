@@ -42,6 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import useShipments from "@/hooks/use-shipments";
 
 const RoutesPage = () => {
   const {
@@ -61,7 +62,7 @@ const RoutesPage = () => {
     isDeleting,
   } = useRoutes();
 
-  const { packages } = usePackages();
+  const { packages, activePackages } = useShipments();
   const isMobile = useIsMobile();
   const { user } = useAuth();
 
@@ -212,7 +213,7 @@ const RoutesPage = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">None</SelectItem>
-                          {packages.map((pkg) => (
+                          {activePackages.map((pkg) => (
                             <SelectItem key={pkg.id} value={pkg.id}>
                               {pkg.name}
                             </SelectItem>
