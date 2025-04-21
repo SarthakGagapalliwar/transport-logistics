@@ -232,7 +232,7 @@ const Shipments = () => {
     <DashboardLayout>
       <PageTransition>
         <Helmet>
-          <title>Shipments | Coal Logistics Hub</title>
+          <title>Shipments | Transport</title>
         </Helmet>
         <div className="space-y-6">
           <div className="flex justify-between items-center">

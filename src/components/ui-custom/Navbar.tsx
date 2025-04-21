@@ -101,7 +101,7 @@ const Navbar: React.FC = () => {
       >
         <div className="p-6">
           <h1 className="text-xl font-semibold tracking-tight">
-            Coal Logistics Hub
+            Transport
           </h1>
         </div>
         
@@ -155,7 +155,7 @@ const Navbar: React.FC = () => {
           <Menu size={24} />
         </Button>
         
-        <h1 className="text-lg font-semibold">Coal Logistics Hub</h1>
+        <h1 className="text-lg font-semibold">Transport</h1>
         
         <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary">
           <User size={20} />

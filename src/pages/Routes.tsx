@@ -141,7 +141,7 @@ const RoutesPage = () => {
     <DashboardLayout>
       <PageTransition>
         <Helmet>
-          <title>Routes | Coal Logistics Hub</title>
+          <title>Routes | Transport</title>
         </Helmet>
         <div className="space-y-6">
           <div className="flex justify-between items-center">

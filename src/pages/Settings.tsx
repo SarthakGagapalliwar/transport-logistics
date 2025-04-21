@@ -252,7 +252,7 @@ const Settings = () => {
     <DashboardLayout>
       <PageTransition>
         <Helmet>
-          <title>Settings | Coal Logistics Hub</title>
+          <title>Settings | Trasport</title>
         </Helmet>
 
         <div className="container mx-auto py-6 space-y-6">

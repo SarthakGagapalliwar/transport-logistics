@@ -15,7 +15,7 @@ const Index = () => {
       <header className="container mx-auto px-4 py-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Truck className="h-8 w-8 text-primary" />
-          <h1 className="text-2xl font-bold">Coal Logistics</h1>
+          <h1 className="text-2xl font-bold">Transport</h1>
         </div>
         <div>
           {user ? (
@@ -135,7 +135,7 @@ const Index = () => {
             <div className="mb-6 md:mb-0">
               <div className="flex items-center gap-2">
                 <Truck className="h-6 w-6" />
-                <h2 className="text-xl font-bold">Coal Logistics</h2>
+                <h2 className="text-xl font-bold">Transport</h2>
               </div>
               <p className="mt-2 text-gray-400">Streamlining coal transportation operations</p>
             </div>
@@ -160,7 +160,7 @@ const Index = () => {
           </div>
           
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-500">
-            <p>© {new Date().getFullYear()} Coal Logistics. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} Transport. All rights reserved.</p>
           </div>
         </div>
       </footer>

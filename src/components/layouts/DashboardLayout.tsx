@@ -118,9 +118,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     <div className="flex min-h-screen bg-gray-50">
       <aside className="w-64 bg-white border-r border-gray-200 hidden md:flex md:flex-col">
         <div className="p-4 border-b border-gray-200">
-          <h1 className="text-xl font-bold">Coal Logistics</h1>
+          <h1 className="text-xl font-bold">Transport</h1>
           {user && (
-            <p className="text-sm text-gray-500">Welcome, {user.username}</p>
+            <p className="text-sm text-gray-500">Welcome,{user.username}</p>
           )}
         </div>
         <nav className="flex-1 overflow-y-auto p-4">
@@ -166,7 +166,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between p-4">
-          <h1 className="text-xl font-bold">Coal Logistics</h1>
+          <h1 className="text-xl font-bold">Trasport</h1>
           <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon">

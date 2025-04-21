@@ -236,7 +236,7 @@ const UserManagement = () => {
     <DashboardLayout>
       <PageTransition>
         <Helmet>
-          <title>User Management | Coal Logistics Hub</title>
+          <title>User Management | Transport </title>
         </Helmet>
         <div className="space-y-6">
           <div className="flex justify-between items-center">

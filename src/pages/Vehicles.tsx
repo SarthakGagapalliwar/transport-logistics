@@ -134,7 +134,7 @@ const Vehicles = () => {
     <DashboardLayout>
       <PageTransition>
         <Helmet>
-          <title>Vehicles | Coal Logistics Hub</title>
+          <title>Vehicles | Transport</title>
         </Helmet>
         <div className="space-y-6">
           <div className="flex justify-between items-center">
