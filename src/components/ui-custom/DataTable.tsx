@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   Table,
@@ -10,21 +9,8 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, ChevronLeft, ChevronRight, Loader2, Filter, Check, X } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { Column } from "@/types/data-table";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 
 interface DataTableProps<T> {
@@ -205,66 +191,6 @@ export const DataTable = <T extends Record<string, any>>({
       return (
         <div className="flex items-center space-x-2">
           <span>{header}</span>
-          {/* <Popover 
-            open={filterPopoverOpen[accessorKey]} 
-            onOpenChange={(open) => setFilterPopoverOpen(prev => ({...prev, [accessorKey]: open}))}
-          >
-            <PopoverTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className={`h-6 w-6 p-0 ${isFiltered ? 'text-primary' : 'text-muted-foreground'}`}
-              >
-                <Filter className="h-3 w-3" />
-                {isFiltered && <span className="sr-only">({activeFilters.length})</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-60 p-0" align="start">
-              {uniqueValues && uniqueValues.length > 0 ? (
-                <Command>
-                  <CommandInput placeholder={`Search ${displayName.toLowerCase()}...`} />
-                  <CommandEmpty>No results found.</CommandEmpty>
-                  <CommandGroup className="max-h-60 overflow-auto">
-                    {uniqueValues.map((value) => (
-                      <CommandItem
-                        key={value}
-                        onSelect={() => toggleFilter(accessorKey, value)}
-                        className="flex items-center"
-                      >
-                        <Checkbox
-                          checked={activeFilters.includes(value)}
-                          onCheckedChange={() => toggleFilter(accessorKey, value)}
-                          className="mr-2"
-                          id={`${accessorKey}-${value}`}
-                        />
-                        <span className="truncate">{value}</span>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                  <div className="border-t p-2 flex justify-between">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => clearColumnFilter(accessorKey)}
-                      disabled={!isFiltered}
-                    >
-                      <X className="h-4 w-4 mr-1" /> Clear
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => setFilterPopoverOpen(prev => ({...prev, [accessorKey]: false}))}
-                    >
-                      <Check className="h-4 w-4 mr-1" /> Apply
-                    </Button>
-                  </div>
-                </Command>
-              ) : (
-                <div className="p-4 text-sm text-muted-foreground">
-                  No filterable values found.
-                </div>
-              )}
-            </PopoverContent>
-          </Popover> */}
         </div>
       );
     }
@@ -315,52 +241,57 @@ export const DataTable = <T extends Record<string, any>>({
         </div>
       )}
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {columns.map((column, idx) => (
-                <TableHead key={idx}>{renderHeader(column.header, column)}</TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
+      {/* Scrollable table container */}
+      <div className="overflow-x-auto rounded-md border">
+        <div className="min-w-full">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  <div className="flex justify-center items-center">
-                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                    <span>Loading...</span>
-                  </div>
-                </TableCell>
+                {columns.map((column, idx) => (
+                  <TableHead key={idx} className="whitespace-nowrap">
+                    {renderHeader(column.header, column)}
+                  </TableHead>
+                ))}
               </TableRow>
-            ) : paginatedData.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results found.
-                </TableCell>
-              </TableRow>
-            ) : (
-              paginatedData.map((item, idx) => (
-                <TableRow 
-                  key={idx}
-                  className={onRowClick ? "cursor-pointer hover:bg-secondary/50" : ""}
-                  onClick={() => onRowClick && onRowClick(item)}
-                >
-                  {columns.map((column, colIdx) => (
-                    <TableCell key={colIdx}>
-                      {column.cell ? column.cell(item) : getItemValue(item, column.accessorKey as string)}
-                    </TableCell>
-                  ))}
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-24 text-center">
+                    <div className="flex justify-center items-center">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      <span>Loading...</span>
+                    </div>
+                  </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : paginatedData.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-24 text-center">
+                    No results found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginatedData.map((item, idx) => (
+                  <TableRow 
+                    key={idx}
+                    className={onRowClick ? "cursor-pointer hover:bg-secondary/50" : ""}
+                    onClick={() => onRowClick && onRowClick(item)}
+                  >
+                    {columns.map((column, colIdx) => (
+                      <TableCell key={colIdx} className="whitespace-nowrap">
+                        {column.cell ? column.cell(item) : getItemValue(item, column.accessorKey as string)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {totalPages > 1 && (
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
             Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredData.length)} of {filteredData.length}
           </p>

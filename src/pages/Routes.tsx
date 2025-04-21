@@ -68,6 +68,15 @@ const RoutesPage = () => {
   // Columns for the data table
   const columns: Column[] = [
     {
+      header: "Package",
+      accessorKey: "assignedPackageId",
+      cell: (row: any) => {
+        if (!row.assignedPackageId) return "None";
+        const pkg = packages.find((p) => p.id === row.assignedPackageId);
+        return pkg ? pkg.name : "Unknown";
+      },
+    },
+    {
       header: "Origin",
       accessorKey: "source",
     },
@@ -76,26 +85,17 @@ const RoutesPage = () => {
       accessorKey: "destination",
     },
     {
-      header: "Distance (km)",
+      header: "Distance",
       accessorKey: "distanceKm",
     },
     {
-      header: "Billing Rate (₹/ton)",
+      header: "Billing Rate",
       accessorKey: "billingRatePerTon",
     },
     {
-      header: "Vendor Rate (₹/ton)",
+      header: "Vendor Rate",
       accessorKey: "vendorRatePerTon",
-    },
-    {
-      header: "Associated Package",
-      accessorKey: "assignedPackageId",
-      cell: (row: any) => {
-        if (!row.assignedPackageId) return "None";
-        const pkg = packages.find((p) => p.id === row.assignedPackageId);
-        return pkg ? pkg.name : "Unknown";
-      },
-    },
+    }
   ];
 
   if (user?.role === "admin") {
@@ -129,7 +129,7 @@ const RoutesPage = () => {
   const mobileColumns = isMobile
     ? columns.filter((col) => {
         if (typeof col.header === "string") {
-          return ["Origin", "Destination", "Actions"].includes(
+          return ["Package",  "Origin", "Destination", "Distance", "Billing Rate", "Vendor Rate", "Actions"].includes(
             col.header
           );
         }
@@ -196,6 +196,32 @@ const RoutesPage = () => {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="assignedPackageId">Assign to Package</Label>
+                    <div className="relative">
+                      <Package className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Select
+                        value={formData.assignedPackageId}
+                        onValueChange={(value) =>
+                          handleSelectChange("assignedPackageId", value)
+                        }
+                      >
+                        <SelectTrigger className="pl-10">
+                          <SelectValue placeholder="Select a package" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {packages.map((pkg) => (
+                            <SelectItem key={pkg.id} value={pkg.id}>
+                              {pkg.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="source">Origin</Label>
                     <div className="relative">
@@ -280,31 +306,6 @@ const RoutesPage = () => {
                         onChange={handleInputChange}
                         required
                       />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label htmlFor="assignedPackageId">Assign to Package</Label>
-                    <div className="relative">
-                      <Package className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                      <Select
-                        value={formData.assignedPackageId}
-                        onValueChange={(value) =>
-                          handleSelectChange("assignedPackageId", value)
-                        }
-                      >
-                        <SelectTrigger className="pl-10">
-                          <SelectValue placeholder="Select a package" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">None</SelectItem>
-                          {packages.map((pkg) => (
-                            <SelectItem key={pkg.id} value={pkg.id}>
-                              {pkg.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
                     </div>
                   </div>
                 </div>

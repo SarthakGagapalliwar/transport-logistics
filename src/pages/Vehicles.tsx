@@ -126,7 +126,7 @@ const Vehicles = () => {
 
   const mobileColumns = isMobile
     ? columns.filter((col) =>
-        ["Vehicle Number", "Type", "Status", "Actions"].includes(col.header)
+        ["Vehicle Number", "Transporter", "Type", "Status", "Actions"].includes(col.header)
       )
     : columns;
 

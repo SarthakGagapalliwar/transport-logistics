@@ -166,7 +166,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between p-4">
-          <h1 className="text-xl font-bold">Trasport</h1>
+          <h1 className="text-xl font-bold">Transport</h1>
           <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon">

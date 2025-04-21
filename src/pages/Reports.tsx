@@ -315,8 +315,8 @@ const Reports = () => {
           const profit = billingAmount - vendorAmount;
           
           return {
-            ...baseFields,
             'ID': shipment.id,
+            ...baseFields,
             'Billing Rate (₹/Ton)': billingRate,
             'Vendor Rate (₹/Ton)': vendorRate,
             'Billing Amount (₹)': billingAmount.toFixed(2),

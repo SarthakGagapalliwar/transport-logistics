@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { usePackages, fetchPackages } from '@/hooks/use-packages';
+import { fetchPackages } from '@/hooks/use-packages';
 
 interface User {
   id: string;

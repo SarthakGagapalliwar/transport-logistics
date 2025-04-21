@@ -241,7 +241,7 @@ const Shipments = () => {
 
   const mobileColumns = isMobile
     ? columns.filter((col) =>
-        ["Source", "Destination", "Actions"].includes(col.header as string)
+        ["Package", "Source", "Destination", "Transporter", "Vehicle", "Gross Weight", "Tare Weight", "Quantity", "Material", "Departure", "Actions"].includes(col.header as string)
       )
     : columns;
 
