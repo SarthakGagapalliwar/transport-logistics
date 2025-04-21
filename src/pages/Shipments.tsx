@@ -71,14 +71,12 @@ const Shipments = () => {
   const isMobile = useIsMobile();
   const { user } = useAuth();
 
-  // New state for field errors
   const [weightErrors, setWeightErrors] = useState({
     grossWeight: "",
     tareWeight: "",
     netWeight: "",
   });
 
-  // Parse weights and compute net
   const grossWeightNum = parseFloat(formData.grossWeight || "0") || 0;
   const tareWeightNum = parseFloat(formData.tareWeight || "0") || 0;
   const netWeightNum =
@@ -86,7 +84,6 @@ const Shipments = () => {
       ? parseFloat((grossWeightNum - tareWeightNum).toFixed(5))
       : 0;
 
-  // Validation
   React.useEffect(() => {
     let errors: typeof weightErrors = {
       grossWeight: "",
@@ -103,7 +100,6 @@ const Shipments = () => {
       errors.netWeight = "Tare Weight cannot exceed Gross Weight";
     }
     setWeightErrors(errors);
-    // Automatically update net quantity in the form
     setFormData((prev) => ({
       ...prev,
       quantityTons:
@@ -111,25 +107,19 @@ const Shipments = () => {
           ? netWeightNum.toFixed(5)
           : "",
     }));
-    // eslint-disable-next-line
   }, [formData.grossWeight, formData.tareWeight]);
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Not arrived";
     try {
-      // Simple formatting that avoids timezone issues
-      // Just display the date and time as stored in the database
       const parts = dateString.split('T');
       if (parts.length !== 2) return dateString;
       
-      // Extract date part
       const datePart = parts[0].split('-');
       if (datePart.length !== 3) return dateString;
       
-      // Extract time part (remove any timezone info)
       const timePart = parts[1].split('+')[0].split('.')[0];
       
-      // Format as "MMM d, yyyy HH:mm"
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const month = months[parseInt(datePart[1]) - 1];
       const day = parseInt(datePart[2]);
@@ -148,10 +138,6 @@ const Shipments = () => {
   : routes;
   
   const allColumns: Column[] = [
-    // {
-    //   header: "ID",
-    //   accessorKey: "id",
-    // },
     {
       header: "Package",
       accessorKey: "packageName",
@@ -178,21 +164,19 @@ const Shipments = () => {
       accessorKey: "vehicleNumber",
     },
     {
+      header: "Gross Weight",
+      accessorKey: "grossWeight",
+      cell: (row: any) => row.grossWeight !== undefined ? `${row.grossWeight} tons` : "N/A",
+    },
+    {
+      header: "Tare Weight",
+      accessorKey: "tareWeight",
+      cell: (row: any) => row.tareWeight !== undefined ? `${row.tareWeight} tons` : "N/A",
+    },
+    {
       header: "Quantity",
       accessorKey: "quantityTons",
       cell: (row: any) => `${row.quantityTons} tons`,
-    },
-    {
-      header: "Billing Rate",
-      accessorKey: "billingRatePerTon",
-      cell: (row: any) =>
-        row.billingRatePerTon ? formatCurrency(row.billingRatePerTon) : "N/A",
-    },
-    {
-      header: "Vendor Rate",
-      accessorKey: "vendorRatePerTon",
-      cell: (row: any) =>
-        row.vendorRatePerTon ? formatCurrency(row.vendorRatePerTon) : "N/A",
     },
     {
       header: "Material",
@@ -308,7 +292,6 @@ const Shipments = () => {
               </DialogHeader>
 
               <form onSubmit={(e) => {
-                // Prevent submit if weight errors
                 if (
                   weightErrors.grossWeight ||
                   weightErrors.tareWeight ||
@@ -507,7 +490,6 @@ const Shipments = () => {
                     </div>
                   </div>
 
-                  {/* GROSS weight */}
                   <div className="space-y-2">
                     <Label htmlFor="grossWeight">Gross Weight (tons)</Label>
                     <div className="relative">
@@ -532,7 +514,6 @@ const Shipments = () => {
                     )}
                   </div>
 
-                  {/* TARE weight */}
                   <div className="space-y-2">
                     <Label htmlFor="tareWeight">Tare Weight (tons)</Label>
                     <div className="relative">
@@ -557,7 +538,6 @@ const Shipments = () => {
                     )}
                   </div>
 
-                  {/* QUANTITY (readonly, auto-calculated) */}
                   <div className="space-y-2 sm:col-span-2">
                     <Label htmlFor="quantityTons">Quantity (Net Weight, tons)</Label>
                     <div className="relative">
