@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { 
   Card, 
@@ -15,6 +16,8 @@ import PackageForm from "@/components/packages/PackageForm";
 import PageTransition from "@/components/ui-custom/PageTransition";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 
 const Packages = () => {
   const { user } = useAuth();
@@ -27,16 +30,44 @@ const Packages = () => {
     selectedPackage, 
     handleAddPackage, 
     handleEditPackage,
+    updatePackageMutation
   } = usePackages();
+  
+  const handleToggleActive = async (pkg: any) => {
+    updatePackageMutation.mutate({
+      id: pkg.id,
+      name: pkg.name,
+      active: !pkg.active
+    });
+  };
   
   const columns = [
     { header: "Name", accessorKey: "name" },
+    {
+      header: "Status",
+      accessorKey: "active",
+      cell: (row: any) => {
+        const pkg = row.row.original;
+        return (
+          <div className="flex items-center space-x-2">
+            <Switch
+              checked={pkg.active}
+              onCheckedChange={() => handleToggleActive(pkg)}
+              disabled={updatePackageMutation.isPending}
+            />
+            <span className="text-sm text-muted-foreground">
+              {pkg.active ? "Active" : "Inactive"}
+            </span>
+          </div>
+        );
+      },
+    },
     {
       header: "Actions",
       accessorKey: "actions",
       cell: (row: any) => (
         <div className="flex space-x-2">
-          <Button variant="ghost" size="icon" onClick={() => handleEditPackage(row)}>
+          <Button variant="ghost" size="icon" onClick={() => handleEditPackage(row.row.original)}>
             <Pencil className="h-4 w-4" />
           </Button>
         </div>
