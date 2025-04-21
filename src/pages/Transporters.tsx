@@ -34,6 +34,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useTransporters } from "@/hooks/use-transporters";
 import { useAuth } from "@/context/AuthContext";
 import { Column } from "@/types/data-table";
+import Switch from "@/components/ui/switch";
 
 const Transporters = () => {
   const {
@@ -75,6 +76,23 @@ const Transporters = () => {
   ];
 
   if (user?.role === "admin") {
+    columns.push({
+      header: "Status",
+      accessorKey: "active",
+      cell: (row: any) => (
+        <Switch
+          checked={row.active}
+          onCheckedChange={() => {
+            const updatedTransporter = {
+              ...row,
+              active: !row.active
+            };
+            handleEditTransporter(updatedTransporter);
+          }}
+          aria-label="Toggle active status"
+        />
+      ),
+    });
     columns.push({
       header: "Actions",
       accessorKey: "actions",

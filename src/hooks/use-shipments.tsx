@@ -199,6 +199,14 @@ export const useShipments = () => {
 
   const userPackages = userProfile?.assigned_packages || [];
 
+  const activePackages = packages.filter(pkg => pkg.active);
+  const activeTransporters = transporters.filter(t => t.active);
+  
+  const activePackageIds = activePackages.map(pkg => pkg.id);
+  const filteredRoutes = routes.filter(route => 
+    !route.assignedPackageId || activePackageIds.includes(route.assignedPackageId)
+  );
+
   const {
     data: shipments = [],
     isLoading,
@@ -541,11 +549,11 @@ export const useShipments = () => {
     handleAddShipment,
     handleSubmit,
     isSubmitting,
-    transporters,
-    vehicles,
-    routes,
-    packages,
-    materials,
+    transporters: activeTransporters,
+    packages: activePackages,
+    routes: filteredRoutes,
     handleDeleteShipment,
   };
 };
+
+export default useShipments;

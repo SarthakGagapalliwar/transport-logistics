@@ -41,6 +41,7 @@ export type Database = {
       }
       packages: {
         Row: {
+          active: boolean
           created_at: string
           created_by_id: string
           id: string
@@ -50,6 +51,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          active?: boolean
           created_at?: string
           created_by_id: string
           id?: string
@@ -59,6 +61,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          active?: boolean
           created_at?: string
           created_by_id?: string
           id?: string
@@ -162,6 +165,7 @@ export type Database = {
       }
       shipments: {
         Row: {
+          active: boolean
           arrival_time: string | null
           created_at: string
           departure_time: string
@@ -181,6 +185,7 @@ export type Database = {
           vehicle_id: string
         }
         Insert: {
+          active?: boolean
           arrival_time?: string | null
           created_at?: string
           departure_time: string
@@ -200,6 +205,7 @@ export type Database = {
           vehicle_id: string
         }
         Update: {
+          active?: boolean
           arrival_time?: string | null
           created_at?: string
           departure_time?: string
@@ -258,6 +264,7 @@ export type Database = {
       }
       transporters: {
         Row: {
+          active: boolean
           address: string
           contact_number: string
           contact_person: string
@@ -268,6 +275,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          active?: boolean
           address: string
           contact_number: string
           contact_person: string
@@ -278,6 +286,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          active?: boolean
           address?: string
           contact_number?: string
           contact_person?: string

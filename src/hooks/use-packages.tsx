@@ -20,6 +20,7 @@ export interface Package {
   createdById: string;
   createdAt: string;
   updatedAt: string;
+  active: boolean;
 }
 
 // Convert DB format to app format
@@ -100,7 +101,8 @@ export const usePackages = () => {
       
       const packageData = {
         ...appToDbPackage(newPackage),
-        created_by_id: user.id
+        created_by_id: user.id,
+        active: newPackage.active
       };
       
       const { data, error } = await supabase
@@ -130,8 +132,10 @@ export const usePackages = () => {
     mutationFn: async (packageData: Partial<Package> & { id: string }) => {
       const { id, ...rest } = packageData;
       
-      // Convert to DB format for the update operation
-      const dbData = appToDbPackage(rest);
+      const dbData = {
+        ...appToDbPackage(rest),
+        active: rest.active
+      };
       
       const { data, error } = await supabase
         .from('packages')
