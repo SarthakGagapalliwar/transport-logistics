@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, DbTransporter, handleSupabaseError } from '@/lib/supabase';
@@ -61,6 +62,7 @@ export const useTransporters = () => {
     contactPerson: '',
     contactNumber: '',
     address: '',
+    active: true, // Add active property with default true
   });
 
   // Query to fetch transporters
@@ -192,6 +194,7 @@ export const useTransporters = () => {
       contactPerson: transporter.contactPerson,
       contactNumber: transporter.contactNumber,
       address: transporter.address,
+      active: transporter.active, // Include active property
     });
     setOpenDialog(true);
   };
@@ -211,6 +214,7 @@ export const useTransporters = () => {
       contactPerson: '',
       contactNumber: '',
       address: '',
+      active: true, // Reset active to true by default
     });
   };
 
@@ -227,6 +231,7 @@ export const useTransporters = () => {
         contactPerson: formData.contactPerson,
         contactNumber: formData.contactNumber,
         address: formData.address,
+        active: formData.active, // Include active property
       });
     } else {
       // Add new transporter
@@ -236,6 +241,7 @@ export const useTransporters = () => {
         contactPerson: formData.contactPerson,
         contactNumber: formData.contactNumber,
         address: formData.address,
+        active: formData.active, // Include active property
       } as Omit<Transporter, 'id'>);
     }
   };
