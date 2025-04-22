@@ -197,6 +197,7 @@ export type DbVehicle = {
   status: string;
   last_maintenance: string;
   created_at: string;
+  active: boolean; // Add the active property
 };
 
 export type DbRoute = {

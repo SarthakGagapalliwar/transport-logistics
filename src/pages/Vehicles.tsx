@@ -47,10 +47,10 @@ const Vehicles = () => {
     handleEditVehicle,
     handleAddVehicle,
     handleSubmit,
-    isSubmitting,
-    transporters,
     handleToggleActive,
+    isSubmitting,
     isToggling,
+    transporters,
   } = useVehicles();
 
   const isMobile = useIsMobile();

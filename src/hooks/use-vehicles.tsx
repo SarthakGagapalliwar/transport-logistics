@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, DbVehicle, handleSupabaseError } from '@/lib/supabase';
@@ -37,6 +38,7 @@ const appToDbVehicle = (vehicle: Partial<Vehicle>) => ({
   capacity: vehicle.capacity,
   status: vehicle.status,
   last_maintenance: vehicle.lastMaintenance,
+  active: vehicle.active,
 });
 
 // Isolate the data fetching function
@@ -266,12 +268,14 @@ export const useVehicles = () => {
       capacity: Number(formData.capacity),
       status: formData.status,
       lastMaintenance: new Date().toISOString(),
+      active: true, // Set active to true by default for new vehicles
     };
     
     if (selectedVehicle) {
       // Update existing vehicle
       updateVehicleMutation.mutate({
         id: selectedVehicle.id,
+        active: selectedVehicle.active, // Preserve active status on update
         ...vehicleData
       });
     } else {
@@ -304,6 +308,7 @@ export const useVehicles = () => {
     handleAddVehicle,
     handleSubmit,
     handleDeleteVehicle,
+    handleToggleActive, // Export the handle toggle function
     isSubmitting: addVehicleMutation.isPending || updateVehicleMutation.isPending,
     isDeleting: deleteVehicleMutation.isPending,
     isToggling: toggleActiveMutation.isPending,
