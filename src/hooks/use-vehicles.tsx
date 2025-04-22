@@ -14,6 +14,7 @@ export interface Vehicle {
   capacity: number;
   status: string;
   lastMaintenance: string | null;
+  active: boolean;
 }
 
 // Convert DB format to app format
@@ -25,6 +26,7 @@ const dbToAppVehicle = (dbVehicle: DbVehicle): Vehicle => ({
   capacity: Number(dbVehicle.capacity),
   status: dbVehicle.status,
   lastMaintenance: dbVehicle.last_maintenance,
+  active: dbVehicle.active,
 });
 
 // Convert app format to DB format
@@ -177,6 +179,33 @@ export const useVehicles = () => {
     }
   });
 
+  // Mutation to toggle vehicle active status
+  const toggleActiveMutation = useMutation({
+    mutationFn: async (vehicle: Vehicle) => {
+      const { error } = await supabase
+        .from('vehicles')
+        .update({ active: !vehicle.active })
+        .eq('id', vehicle.id);
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      return vehicle;
+    },
+    onSuccess: (vehicle) => {
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      toast.success(
+        `Vehicle "${vehicle.vehicleNumber}" ${
+          vehicle.active ? 'deactivated' : 'activated'
+        } successfully`
+      );
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update vehicle status: ${error.message}`);
+    }
+  });
+
   // Handle input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -256,6 +285,11 @@ export const useVehicles = () => {
     deleteVehicleMutation.mutate(id);
   };
 
+  // Handle toggling vehicle active status
+  const handleToggleActive = (vehicle: Vehicle) => {
+    toggleActiveMutation.mutate(vehicle);
+  };
+
   return {
     vehicles,
     isLoading,
@@ -272,6 +306,7 @@ export const useVehicles = () => {
     handleDeleteVehicle,
     isSubmitting: addVehicleMutation.isPending || updateVehicleMutation.isPending,
     isDeleting: deleteVehicleMutation.isPending,
+    isToggling: toggleActiveMutation.isPending,
     transporters,
   };
 };

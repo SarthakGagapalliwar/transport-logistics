@@ -1,5 +1,6 @@
 import React from "react";
 import { Helmet } from "react-helmet";
+import { format } from "date-fns";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import PageTransition from "@/components/ui-custom/PageTransition";
 import { DataTable } from "@/components/ui-custom/DataTable";
@@ -28,9 +29,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Plus, Edit, Truck, Calendar } from "lucide-react";
+import { Plus, Edit, Truck, Calendar, ToggleLeft, ToggleRight } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { format } from "date-fns";
 import { useVehicles } from "@/hooks/use-vehicles";
 import { useAuth } from "@/context/AuthContext";
 
@@ -49,6 +49,8 @@ const Vehicles = () => {
     handleSubmit,
     isSubmitting,
     transporters,
+    handleToggleActive,
+    isToggling,
   } = useVehicles();
 
   const isMobile = useIsMobile();
@@ -80,29 +82,29 @@ const Vehicles = () => {
     {
       header: "Capacity",
       accessorKey: "capacity",
-      cell: (row: any) => `${row.capacity} tons`,
+      cell: (info: any) => `${info.getValue()} tons`,
     },
     {
       header: "Status",
       accessorKey: "status",
-      cell: (row: any) => (
+      cell: (info: any) => (
         <span
           className={`px-2 py-1 rounded-full text-xs font-medium ${
-            row.status === "Available"
+            info.getValue() === "Available"
               ? "bg-green-100 text-green-800"
-              : row.status === "In Transit"
+              : info.getValue() === "In Transit"
               ? "bg-blue-100 text-blue-800"
               : "bg-amber-100 text-amber-800"
           }`}
         >
-          {row.status}
+          {info.getValue()}
         </span>
       ),
     },
     {
       header: "Last Maintenance",
       accessorKey: "lastMaintenance",
-      cell: (row: any) => formatDate(row.lastMaintenance),
+      cell: (info: any) => formatDate(info.getValue()),
     },
   ];
 
@@ -110,14 +112,26 @@ const Vehicles = () => {
     columns.push({
       header: "Actions",
       accessorKey: "actions",
-      cell: (row: any) => (
+      cell: (info: any) => (
         <div className="flex space-x-2">
           <Button
             variant="outline"
             size="icon"
-            onClick={() => handleEditVehicle(row)}
+            onClick={() => handleEditVehicle(info.row.original)}
           >
             <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => handleToggleActive(info.row.original)}
+            disabled={isToggling}
+          >
+            {info.row.original.active ? (
+              <ToggleLeft className="h-4 w-4 text-green-500" />
+            ) : (
+              <ToggleRight className="h-4 w-4 text-red-500" />
+            )}
           </Button>
         </div>
       ),
