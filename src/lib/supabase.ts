@@ -1,10 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
 // These environment variables are automatically injected by the Supabase integration
-const supabaseUrl = "https://oeoklsspynwktggvrrcm.supabase.co";
-const supabaseAnonKey =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lb2tsc3NweW53a3RnZ3ZycmNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEzMzg5MjYsImV4cCI6MjA1NjkxNDkyNn0.dLYGPxN31HA4GFc-LNWfa_GmjgnJE32FCbNcr9xP3u8";
-
+const supabaseUrl = "https://uvosmrargaueilecbycn.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b3NtcmFyZ2F1ZWlsZWNieWNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUzNDc4MDUsImV4cCI6MjA2MDkyMzgwNX0.W05d74uqohoTa5-4Vdgh9GTi3Zpa1SlFtDf6GwaMlww";
 // Check if we're in development mode
 const isDevelopment = import.meta.env.MODE === "development";
 
@@ -51,7 +49,6 @@ const createMockClient = () => {
       // Create a chainable API for mock data operations
       const chainObj = {
         select: (columns = "*") => {
-
           const mockData = mockStorage[table] || [];
 
           return {
@@ -72,12 +69,13 @@ const createMockClient = () => {
           };
         },
         insert: (data) => {
-
           // Generate a mock ID if not provided
-          const newItem = { 
-            id: data.id || `mock-id-${Math.random().toString(36).substring(2, 10)}`,
+          const newItem = {
+            id:
+              data.id ||
+              `mock-id-${Math.random().toString(36).substring(2, 10)}`,
             ...data,
-            created_at: data.created_at || new Date().toISOString()
+            created_at: data.created_at || new Date().toISOString(),
           };
 
           // Add to mock storage
@@ -88,14 +86,16 @@ const createMockClient = () => {
 
           // Add chainable select method to insert
           const insertObj = {
-            select: () => Promise.resolve({
-              data: newItem,
-              error: null
-            }),
-            single: () => Promise.resolve({ 
-              data: newItem, 
-              error: null 
-            }),
+            select: () =>
+              Promise.resolve({
+                data: newItem,
+                error: null,
+              }),
+            single: () =>
+              Promise.resolve({
+                data: newItem,
+                error: null,
+              }),
             data: newItem,
             error: null,
           };
@@ -104,7 +104,6 @@ const createMockClient = () => {
         update: (data) => {
           return {
             eq: (column, value) => {
-
               if (mockStorage[table]) {
                 const index = mockStorage[table].findIndex(
                   (item) => item[column] === value
@@ -115,16 +114,16 @@ const createMockClient = () => {
                     ...data,
                     updated_at: new Date().toISOString(),
                   };
-                  return Promise.resolve({ 
-                    data: mockStorage[table][index], 
-                    error: null 
+                  return Promise.resolve({
+                    data: mockStorage[table][index],
+                    error: null,
                   });
                 }
               }
-              
-              return Promise.resolve({ 
-                data: null, 
-                error: null 
+
+              return Promise.resolve({
+                data: null,
+                error: null,
               });
             },
             data: null,
@@ -134,15 +133,18 @@ const createMockClient = () => {
         delete: () => {
           return {
             eq: (column, value) => {
-
               if (mockStorage[table]) {
                 const initialLength = mockStorage[table].length;
-                const deletedItem = mockStorage[table].find(item => item[column] === value);
-                mockStorage[table] = mockStorage[table].filter(item => item[column] !== value);
-                
-                return Promise.resolve({ 
-                  data: deletedItem || null, 
-                  error: null 
+                const deletedItem = mockStorage[table].find(
+                  (item) => item[column] === value
+                );
+                mockStorage[table] = mockStorage[table].filter(
+                  (item) => item[column] !== value
+                );
+
+                return Promise.resolve({
+                  data: deletedItem || null,
+                  error: null,
                 });
               }
 
@@ -227,8 +229,8 @@ export type DbShipment = {
   route_id?: string;
   package_id?: string;
   material_id?: string;
-  gross_weight?: number;  // Added this property
-  tare_weight?: number;   // Added this property
+  gross_weight?: number; // Added this property
+  tare_weight?: number; // Added this property
 };
 
 export type DbMaterial = {
