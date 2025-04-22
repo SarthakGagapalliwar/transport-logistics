@@ -112,7 +112,7 @@ const Transporters = () => {
   const mobileColumns = isMobile
     ? columns.filter((col) => {
         if (typeof col.header === 'string') {
-          return ["Name", "Status", "Actions"].includes(col.header);
+          return ["Name","GST Number","Contact Person","Phone", "Status", "Actions"].includes(col.header);
         }
         return false;
       })
