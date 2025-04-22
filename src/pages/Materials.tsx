@@ -35,7 +35,6 @@ import {
   Package,
   Ruler,
   Tag,
-  AlertTriangle,
 } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -164,9 +163,7 @@ const Materials = () => {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Materials</h1>
-              <p className="text-muted-foreground">
-                Manage materials for shipment
-              </p>
+              <p className="text-muted-foreground">Manage materials for shipment</p>
             </div>
             <Button onClick={handleAddMaterial}>
               <Plus className="mr-2 h-4 w-4" /> Add Material
