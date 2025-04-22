@@ -345,6 +345,7 @@ export type Database = {
       }
       vehicles: {
         Row: {
+          active: boolean
           capacity: number
           created_at: string
           id: string
@@ -356,6 +357,7 @@ export type Database = {
           vehicle_type: string
         }
         Insert: {
+          active?: boolean
           capacity: number
           created_at?: string
           id?: string
@@ -367,6 +369,7 @@ export type Database = {
           vehicle_type: string
         }
         Update: {
+          active?: boolean
           capacity?: number
           created_at?: string
           id?: string

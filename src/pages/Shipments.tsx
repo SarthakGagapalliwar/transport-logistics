@@ -484,9 +484,10 @@ const Shipments = () => {
                       <SelectContent>
                         {vehicles
                           .filter(
-                            (v) =>
-                              !formData.transporterId ||
-                              v.transporterId === formData.transporterId
+                            (v) => 
+                              v.active && // Only show active vehicles
+                              (!formData.transporterId ||
+                              v.transporterId === formData.transporterId)
                           )
                           .map((vehicle) => (
                             <SelectItem key={vehicle.id} value={vehicle.id}>
