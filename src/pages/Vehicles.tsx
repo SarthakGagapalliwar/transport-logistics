@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Helmet } from "react-helmet";
 import { format } from "date-fns";
@@ -82,7 +83,7 @@ const Vehicles = () => {
     {
       header: "Capacity",
       accessorKey: "capacity",
-      cell: (info: any) => `${info.getValue()} tons`,
+      cell: (info: any) => `${info.capacity} tons`,
     },
     {
       header: "Status",
@@ -90,21 +91,21 @@ const Vehicles = () => {
       cell: (info: any) => (
         <span
           className={`px-2 py-1 rounded-full text-xs font-medium ${
-            info.getValue() === "Available"
+            info.status === "Available"
               ? "bg-green-100 text-green-800"
-              : info.getValue() === "In Transit"
+              : info.status === "In Transit"
               ? "bg-blue-100 text-blue-800"
               : "bg-amber-100 text-amber-800"
           }`}
         >
-          {info.getValue()}
+          {info.status}
         </span>
       ),
     },
     {
       header: "Last Maintenance",
       accessorKey: "lastMaintenance",
-      cell: (info: any) => formatDate(info.getValue()),
+      cell: (info: any) => formatDate(info.lastMaintenance),
     },
   ];
 
@@ -117,17 +118,17 @@ const Vehicles = () => {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => handleEditVehicle(info.row.original)}
+            onClick={() => handleEditVehicle(info)}
           >
             <Edit className="h-4 w-4" />
           </Button>
           <Button
             variant="outline"
             size="icon"
-            onClick={() => handleToggleActive(info.row.original)}
+            onClick={() => handleToggleActive(info)}
             disabled={isToggling}
           >
-            {info.row.original.active ? (
+            {info.active ? (
               <ToggleLeft className="h-4 w-4 text-green-500" />
             ) : (
               <ToggleRight className="h-4 w-4 text-red-500" />
