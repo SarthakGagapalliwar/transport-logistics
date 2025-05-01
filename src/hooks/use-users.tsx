@@ -72,7 +72,7 @@ export const useUsers = () => {
           return {
             id: profile.id,
             username: profile.username,
-            email: email || profile.email || '',
+            email: email || '',
             role: profile.role,
             active: profile.active !== undefined ? profile.active : true,
             assignedPackages: profile.assigned_packages || []

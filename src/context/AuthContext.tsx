@@ -79,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Fetch user role from profiles table
     const { data, error } = await supabase
       .from('profiles')
-      .select('role, username, active, email')
+      .select('role, username, active')
       .eq('id', supabaseUser.id)
       .single();
     
@@ -176,30 +176,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Create user function (for admin use)
   const createUser = async (email: string, password: string, username: string, role: UserRole): Promise<boolean> => {
     try {
-      // 1. Register user in Supabase Auth
-      const { data, error } = await supabase.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true, // Auto confirm email to avoid verification issues
-        user_metadata: {
+      // Use the edge function to create the user
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: JSON.stringify({
+          email,
+          password,
           username,
           role
-        },
-        data: {
-          username,
-          role
-        }
+        })
       });
       
-      if (error) {
-        console.error('User creation error:', error);
-        throw error;
+      if (error || !data?.success) {
+        console.error('User creation error:', error || data?.error);
+        throw error || new Error(data?.error || 'Failed to create user');
       }
       
       if (data?.user) {
-        // Our database trigger should automatically create the profile
         console.log('User created successfully:', data.user);
-        
         return true;
       }
       
