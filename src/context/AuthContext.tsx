@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -78,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Fetch user role from profiles table
     const { data, error } = await supabase
       .from('profiles')
-      .select('role, username, active')
+      .select('role, username, active, email')
       .eq('id', supabaseUser.id)
       .single();
     
@@ -143,7 +144,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         options: {
           data: {
             username
-          }
+          },
+          emailRedirectTo: window.location.origin + '/signin'
         }
       });
       
@@ -155,25 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       if (data?.user) {
-        // 2. Create a profile record for the user
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([
-            { 
-              id: data.user.id,
-              username, 
-              role: 'user',
-              created_at: new Date().toISOString(),
-            }
-          ]);
-          
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-          toast.error('Failed to create user profile');
-          setLoading(false);
-          return false;
-        }
-        
+        // The trigger should automatically create the profile
         toast.success('Account created successfully! Please verify your email.');
         setLoading(false);
         return true;
@@ -192,18 +176,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Create user function (for admin use)
   const createUser = async (email: string, password: string, username: string, role: UserRole): Promise<boolean> => {
     try {
-      
-      // 1. Register user in Supabase Auth using regular signup
-      const { data, error } = await supabase.auth.signUp({
+      // 1. Register user in Supabase Auth
+      const { data, error } = await supabase.auth.admin.createUser({
         email,
         password,
-        options: {
-          data: {
-            username,
-            password, // Store password in metadata for admin view
-            role     // Store role in metadata
-          },
-          emailRedirectTo: window.location.origin
+        email_confirm: true, // Auto confirm email to avoid verification issues
+        user_metadata: {
+          username,
+          role
+        },
+        data: {
+          username,
+          role
         }
       });
       
@@ -213,23 +197,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       if (data?.user) {
-        // 2. Create a profile record for the user with specified role
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert([
-            { 
-              id: data.user.id,
-              username, 
-              role, // Use the role parameter
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }
-          ]);
-          
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-          throw new Error('Failed to create user profile');
-        }
+        // Our database trigger should automatically create the profile
+        console.log('User created successfully:', data.user);
         
         return true;
       }

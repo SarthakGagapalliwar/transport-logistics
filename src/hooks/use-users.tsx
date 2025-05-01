@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -40,7 +41,12 @@ export const useUsers = () => {
   });
 
   // Query to fetch users from profiles table
-  const { data: users = [], isLoading } = useQuery({
+  const { 
+    data: users = [], 
+    isLoading, 
+    error,
+    refetch
+  } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
       try {
@@ -55,14 +61,22 @@ export const useUsers = () => {
           throw profilesError;
         }
         
-        // Transform the profiles data
-        const userProfiles = profiles.map(profile => ({
-          id: profile.id,
-          username: profile.username,
-          email: profile.email || '', // If email is stored in profiles, use it
-          role: profile.role,
-          active: profile.active,
-          assignedPackages: profile.assigned_packages || []
+        // Get emails for users if admin
+        const userProfiles = await Promise.all(profiles.map(async (profile) => {
+          // Try to get the email from the function
+          const { data: emailData, error: emailError } = await supabase
+            .rpc('get_user_email', { user_id: profile.id });
+          
+          const email = emailData && emailData.length > 0 ? emailData[0].email : '';
+          
+          return {
+            id: profile.id,
+            username: profile.username,
+            email: email || profile.email || '',
+            role: profile.role,
+            active: profile.active !== undefined ? profile.active : true,
+            assignedPackages: profile.assigned_packages || []
+          };
         }));
         
         return userProfiles as User[];
@@ -76,6 +90,8 @@ export const useUsers = () => {
   // Mutation to update a user
   const updateUserMutation = useMutation({
     mutationFn: async (user: User & { assignedPackages?: string[] }) => {
+      console.log('Updating user:', user);
+      
       // First update user profile
       const { error: profileError } = await supabase
         .from('profiles')
@@ -85,15 +101,21 @@ export const useUsers = () => {
         })
         .eq('id', user.id);
       
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        throw profileError;
+      }
 
-      // Then update the user role using our new function
+      // Then update the user role
       const { error: roleError } = await supabase.rpc('assign_user_role', {
         user_id: user.id,
         user_role: user.role
       });
       
-      if (roleError) throw roleError;
+      if (roleError) {
+        console.error('Role update error:', roleError);
+        throw roleError;
+      }
 
       // Update assigned packages if provided
       if (user.assignedPackages) {
@@ -102,7 +124,10 @@ export const useUsers = () => {
           package_ids: user.assignedPackages
         });
         
-        if (packageError) throw packageError;
+        if (packageError) {
+          console.error('Package assignment error:', packageError);
+          throw packageError;
+        }
       }
       
       return user;
@@ -114,6 +139,7 @@ export const useUsers = () => {
       resetForm();
     },
     onError: (error: Error) => {
+      console.error('Update user error:', error);
       toast.error(`Failed to update user: ${error.message}`);
     },
   });
@@ -121,45 +147,46 @@ export const useUsers = () => {
   // Mutation to add a new user
   const addUserMutation = useMutation({
     mutationFn: async (userData: UserFormData) => {
-      // Call the sign up function from Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: userData.email,
-        password: userData.password,
-        options: {
-          data: {
+      try {
+        console.log('Adding new user:', userData.email);
+        
+        // Using built-in Auth API to create user
+        const { error: authError, data } = await supabase.functions.invoke('create-user', {
+          body: JSON.stringify({
+            email: userData.email,
+            password: userData.password,
             username: userData.name,
-          },
-        },
-      });
-      
-      if (authError) throw authError;
-
-      if (!authData.user) {
-        throw new Error('No user data returned from signup');
-      }
-
-      // Set the user role using our new function
-      const { error: roleError } = await supabase.rpc('assign_user_role', {
-        user_id: authData.user.id,
-        user_role: userData.role
-      });
-      
-      if (roleError) throw roleError;
-
-      // Assign packages if any
-      if (userData.assignedPackages.length > 0) {
-        const { error } = await supabase.rpc('assign_packages_to_user', {
-          user_id: authData.user.id,
-          package_ids: userData.assignedPackages
+            role: userData.role
+          })
         });
         
-        if (error) {
-          console.error('Error assigning packages:', error);
-          throw error;
+        if (authError || !data?.success) {
+          throw new Error(authError?.message || data?.error || 'Failed to create user');
         }
+        
+        const userId = data.user?.id;
+        if (!userId) {
+          throw new Error('No user ID returned from user creation');
+        }
+        
+        // Assign packages if any
+        if (userData.assignedPackages.length > 0) {
+          const { error } = await supabase.rpc('assign_packages_to_user', {
+            user_id: userId,
+            package_ids: userData.assignedPackages
+          });
+          
+          if (error) {
+            console.error('Error assigning packages:', error);
+            throw error;
+          }
+        }
+        
+        return data;
+      } catch (error: any) {
+        console.error('Add user error:', error);
+        throw new Error(error.message || 'An error occurred while creating the user');
       }
-      
-      return authData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -175,6 +202,7 @@ export const useUsers = () => {
   // Mutation to toggle user access
   const toggleUserAccessMutation = useMutation({
     mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
+      console.log('Toggling user access:', userId, isActive);
       const { error } = await supabase.rpc('toggle_user_access', {
         user_id: userId,
         is_active: isActive
@@ -269,6 +297,7 @@ export const useUsers = () => {
   return {
     users,
     isLoading,
+    error,
     openDialog,
     setOpenDialog,
     selectedUser,
@@ -288,5 +317,6 @@ export const useUsers = () => {
     availablePackages,
     isLoadingPackages,
     handlePackageSelectionChange,
+    refetch,
   };
 };
