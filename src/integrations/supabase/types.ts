@@ -298,21 +298,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_roles: {
-        Row: {
-          role: string
-          user_id: string
-        }
-        Insert: {
-          role: string
-          user_id: string
-        }
-        Update: {
-          role?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       user_settings: {
         Row: {
           created_at: string
@@ -420,6 +405,12 @@ export type Database = {
       delete_user: {
         Args: { user_id: string }
         Returns: undefined
+      }
+      get_user_email: {
+        Args: { user_id: string }
+        Returns: {
+          email: string
+        }[]
       }
       toggle_user_access: {
         Args: { user_id: string; is_active: boolean }
