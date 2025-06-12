@@ -3,3 +3,6 @@ project_id = "uvosmrargaueilecbycn"
 
 [functions.create-user]
 verify_jwt = true
+
+[functions.change-user-password]
+verify_jwt = true

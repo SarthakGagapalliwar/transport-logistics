@@ -221,6 +221,33 @@ export const useUsers = () => {
     },
   });
 
+  // Mutation to change user password
+  const changePasswordMutation = useMutation({
+    mutationFn: async ({ userId, newPassword }: { userId: string; newPassword: string }) => {
+      console.log('Changing password for user:', userId);
+      
+      const { data, error } = await supabase.functions.invoke('change-user-password', {
+        body: JSON.stringify({
+          userId,
+          newPassword
+        })
+      });
+      
+      if (error || !data?.success) {
+        throw new Error(error?.message || data?.error || 'Failed to change password');
+      }
+      
+      return data;
+    },
+    onSuccess: () => {
+      toast.success('Password changed successfully');
+    },
+    onError: (error: Error) => {
+      console.error('Change password error:', error);
+      toast.error(`Failed to change password: ${error.message}`);
+    },
+  });
+
   // Handle input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -294,6 +321,11 @@ export const useUsers = () => {
     });
   };
 
+  // Handle changing user password
+  const handleChangePassword = (userId: string, newPassword: string) => {
+    changePasswordMutation.mutate({ userId, newPassword });
+  };
+
   return {
     users,
     isLoading,
@@ -318,5 +350,7 @@ export const useUsers = () => {
     isLoadingPackages,
     handlePackageSelectionChange,
     refetch,
+    changePasswordMutation,
+    handleChangePassword,
   };
 };

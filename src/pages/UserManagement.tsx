@@ -38,7 +38,8 @@ import {
   Package,
   ToggleLeft,
   ToggleRight,
-  Shield
+  Shield,
+  Key
 } from 'lucide-react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -71,12 +72,19 @@ const UserManagement = () => {
     availablePackages,
     isLoadingPackages,
     handlePackageSelectionChange,
+    changePasswordMutation,
+    handleChangePassword,
   } = useUsers();
 
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    newPassword: '',
+    confirmPassword: ''
+  });
 
   const handleSelectUser = (userId: string, checked: boolean) => {
     if (checked) {
@@ -96,6 +104,36 @@ const UserManagement = () => {
 
   const handleRoleChange = (value: string) => {
     handleSelectChange('role', value);
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPasswordData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+    
+    if (passwordData.newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters long');
+      return;
+    }
+    
+    if (selectedUser) {
+      handleChangePassword(selectedUser.id, passwordData.newPassword);
+      setShowPasswordDialog(false);
+      setPasswordData({ newPassword: '', confirmPassword: '' });
+    }
+  };
+
+  const openPasswordDialog = (user: any) => {
+    setSelectedUser(user);
+    setShowPasswordDialog(true);
   };
 
   const columns: Column[] = [
@@ -207,6 +245,14 @@ const UserManagement = () => {
             <Edit className="h-4 w-4" />
           </Button>
           <Button
+            variant="outline"
+            size="icon"
+            onClick={() => openPasswordDialog(row)}
+            title="Change password"
+          >
+            <Key className="h-4 w-4" />
+          </Button>
+          <Button
             variant={row.active ? "outline" : "secondary"}
             size="icon"
             onClick={() => handleToggleUserAccess(row)}
@@ -280,6 +326,7 @@ const UserManagement = () => {
             </CardContent>
           </Card>
 
+          {/* Edit User Dialog */}
           <Dialog open={openDialog} onOpenChange={setOpenDialog}>
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
@@ -435,6 +482,70 @@ const UserManagement = () => {
                       </>
                     ) : (
                       <>{selectedUser ? 'Update' : 'Add'} User</>
+                    )}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          {/* Change Password Dialog */}
+          <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Change Password</DialogTitle>
+                <DialogDescription>
+                  Change password for {selectedUser?.username}
+                </DialogDescription>
+              </DialogHeader>
+
+              <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="newPassword">New Password</Label>
+                  <Input
+                    id="newPassword"
+                    name="newPassword"
+                    type="password"
+                    placeholder="Enter new password"
+                    value={passwordData.newPassword}
+                    onChange={handlePasswordChange}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type="password"
+                    placeholder="Confirm new password"
+                    value={passwordData.confirmPassword}
+                    onChange={handlePasswordChange}
+                    required
+                  />
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowPasswordDialog(false);
+                      setPasswordData({ newPassword: '', confirmPassword: '' });
+                    }}
+                    disabled={changePasswordMutation?.isPending}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={changePasswordMutation?.isPending}>
+                    {changePasswordMutation?.isPending ? (
+                      <>
+                        <span className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white"></span>
+                        Changing...
+                      </>
+                    ) : (
+                      'Change Password'
                     )}
                   </Button>
                 </DialogFooter>
