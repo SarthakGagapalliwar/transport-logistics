@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -214,7 +213,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setUser(null);
     toast.info('You have been logged out');
-    navigate('/');
+    navigate('/signin');
   };
 
   return (
