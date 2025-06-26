@@ -50,7 +50,7 @@ export const useMaterials = () => {
     queryKey: ['materials'],
     queryFn: fetchMaterials,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes (renamed from cacheTime)
   });
 
   // Mutation to add a new material
