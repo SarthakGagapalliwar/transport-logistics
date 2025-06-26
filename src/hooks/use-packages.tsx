@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -83,7 +82,9 @@ export const usePackages = () => {
       }
       return data || [];
     },
-    enabled: !!user && isAdmin
+    enabled: !!user && isAdmin,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
   // Query to fetch packages
@@ -95,7 +96,9 @@ export const usePackages = () => {
   } = useQuery({
     queryKey: ['packages'],
     queryFn: fetchPackages,
-    enabled: !!user
+    enabled: !!user,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Mutation to add a new package

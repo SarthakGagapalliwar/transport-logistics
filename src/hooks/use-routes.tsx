@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, DbRoute } from '@/lib/supabase';
@@ -76,13 +75,17 @@ export const useRoutes = () => {
     error 
   } = useQuery({
     queryKey: ['routes'],
-    queryFn: fetchRoutes
+    queryFn: fetchRoutes,
+    staleTime: 3 * 60 * 1000, // 3 minutes
+    gcTime: 8 * 60 * 1000, // 8 minutes
   });
   
   // Query to fetch packages for assignment
   const { data: packages = [] } = useQuery({
     queryKey: ['packagesForRoutes'],
-    queryFn: fetchPackages
+    queryFn: fetchPackages,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
   // Mutation to add a new route

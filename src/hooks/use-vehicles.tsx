@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, DbVehicle, handleSupabaseError } from '@/lib/supabase';
@@ -69,7 +68,9 @@ export const useVehicles = () => {
   // Use separate queries for transporters and vehicles
   const { data: allTransporters = [] } = useQuery({
     queryKey: ['transporters'],
-    queryFn: fetchTransporters
+    queryFn: fetchTransporters,
+    staleTime: 3 * 60 * 1000, // 3 minutes
+    gcTime: 8 * 60 * 1000, // 8 minutes
   });
   
   // Filter out inactive transporters
@@ -91,7 +92,9 @@ export const useVehicles = () => {
     error 
   } = useQuery({
     queryKey: ['vehicles'],
-    queryFn: fetchVehicles
+    queryFn: fetchVehicles,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Mutation to add a new vehicle

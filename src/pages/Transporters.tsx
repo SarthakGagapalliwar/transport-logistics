@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Helmet } from "react-helmet";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
@@ -35,6 +36,9 @@ import { useTransporters } from "@/hooks/use-transporters";
 import { useAuth } from "@/context/AuthContext";
 import { Column } from "@/types/data-table";
 import { Switch } from "@/components/ui/switch";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 const Transporters = () => {
   const {
@@ -51,9 +55,32 @@ const Transporters = () => {
     isSubmitting,
   } = useTransporters();
 
+  const queryClient = useQueryClient();
   const isMobile = useIsMobile();
-
   const { user } = useAuth();
+
+  // Optimized mutation for toggling active status
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase
+        .from('transporters')
+        .update({ active })
+        .eq('id', id);
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      return { id, active };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transporters'] });
+      toast.success('Transporter status updated successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update transporter: ${error.message}`);
+    }
+  });
 
   const columns: Column[] = [
     {
@@ -81,13 +108,13 @@ const Transporters = () => {
       cell: (row: any) => (
         <Switch
           checked={row.active}
-          onCheckedChange={() => {
-            const updatedTransporter = {
-              ...row,
-              active: !row.active
-            };
-            handleEditTransporter(updatedTransporter);
+          onCheckedChange={(checked) => {
+            toggleActiveMutation.mutate({
+              id: row.id,
+              active: checked
+            });
           }}
+          disabled={toggleActiveMutation.isPending}
           aria-label="Toggle active status"
         />
       ),

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, DbTransporter, handleSupabaseError } from '@/lib/supabase';
@@ -62,7 +61,7 @@ export const useTransporters = () => {
     contactPerson: '',
     contactNumber: '',
     address: '',
-    active: true, // Add active property with default true
+    active: true,
   });
 
   // Query to fetch transporters
@@ -73,42 +72,33 @@ export const useTransporters = () => {
     refetch 
   } = useQuery({
     queryKey: ['transporters'],
-    queryFn: fetchTransporters
+    queryFn: fetchTransporters,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Mutation to add a new transporter
   const addTransporterMutation = useMutation({
     mutationFn: async (transporter: Omit<Transporter, 'id'>) => {
-      try {
-        const { data, error } = await supabase
-          .from('transporters')
-          .insert(appToDbTransporter(transporter))
-          .select()
-          .single();
-        
-        if (error) {
-          console.error('Error in supabase insert:', error);
-          throw new Error(error.message);
-        }
-        
-        return dbToAppTransporter(data as DbTransporter);
-      } catch (error) {
-        console.error('Error adding transporter:', error);
-        throw error;
+      const { data, error } = await supabase
+        .from('transporters')
+        .insert(appToDbTransporter(transporter))
+        .select()
+        .single();
+      
+      if (error) {
+        throw new Error(error.message);
       }
+      
+      return dbToAppTransporter(data as DbTransporter);
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['transporters'] });
       toast.success(`Transporter "${data.name}" added successfully`);
       setOpenDialog(false);
       resetForm();
-      // Force a refetch
-      setTimeout(() => {
-        refetch();
-      }, 100);
     },
     onError: (error: Error) => {
-      console.error('Mutation error:', error);
       toast.error(`Failed to add transporter: ${error.message}`);
     }
   });
@@ -122,7 +112,6 @@ export const useTransporters = () => {
         .eq('id', transporter.id);
       
       if (error) {
-        console.error('Error updating transporter:', error);
         throw new Error(error.message);
       }
       
@@ -133,10 +122,6 @@ export const useTransporters = () => {
       toast.success(`Transporter "${transporter.name}" updated successfully`);
       setOpenDialog(false);
       resetForm();
-      // Force a refetch
-      setTimeout(() => {
-        refetch();
-      }, 100);
     },
     onError: (error: Error) => {
       toast.error(`Failed to update transporter: ${error.message}`);

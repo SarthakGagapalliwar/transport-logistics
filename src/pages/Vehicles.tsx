@@ -55,7 +55,6 @@ const Vehicles = () => {
   } = useVehicles();
 
   const isMobile = useIsMobile();
-
   const { user } = useAuth();
 
   const formatDate = (dateString: string | null) => {

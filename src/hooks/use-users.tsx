@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -38,6 +37,8 @@ export const useUsers = () => {
   const { data: availablePackages = [], isLoading: isLoadingPackages } = useQuery({
     queryKey: ['packages'],
     queryFn: fetchPackages,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
   // Query to fetch users from profiles table
@@ -50,20 +51,16 @@ export const useUsers = () => {
     queryKey: ['users'],
     queryFn: async () => {
       try {
-        // Get profiles with roles
         const { data: profiles, error: profilesError } = await supabase
           .from('profiles')
           .select('*')
           .order('created_at', { ascending: false });
         
         if (profilesError) {
-          console.error('Error fetching profiles:', profilesError);
           throw profilesError;
         }
         
-        // Get emails for users if admin
         const userProfiles = await Promise.all(profiles.map(async (profile) => {
-          // Try to get the email from the function
           const { data: emailData, error: emailError } = await supabase
             .rpc('get_user_email', { user_id: profile.id });
           
@@ -85,6 +82,8 @@ export const useUsers = () => {
         throw error;
       }
     },
+    staleTime: 3 * 60 * 1000, // 3 minutes
+    gcTime: 8 * 60 * 1000, // 8 minutes
   });
 
   // Mutation to update a user
