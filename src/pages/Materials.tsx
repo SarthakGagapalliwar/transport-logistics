@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Helmet } from "react-helmet";
 import PageTransition from "@/components/ui-custom/PageTransition";
@@ -100,11 +101,6 @@ const Materials = () => {
           {row.status}
         </span>
       ),
-    },
-    {
-      header: "Created",
-      accessorKey: "created_at",
-      cell: (row: any) => format(new Date(row.created_at), "MMM d, yyyy"),
     },
     {
       header: "Actions",

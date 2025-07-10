@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, DbMaterial } from '@/lib/supabase';
@@ -10,6 +11,8 @@ export interface Material {
   description: string | null;
   unit: string;
   status: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // Convert DB format to app format
@@ -19,6 +22,8 @@ const dbToAppMaterial = (dbMaterial: DbMaterial): Material => ({
   description: dbMaterial.description,
   unit: dbMaterial.unit,
   status: dbMaterial.status,
+  created_at: dbMaterial.created_at,
+  updated_at: dbMaterial.updated_at,
 });
 
 // Convert app format to DB format
@@ -34,9 +39,10 @@ export const fetchMaterials = async () => {
   const { data, error } = await supabase
     .from('materials')
     .select('*')
-    .order('name');
+    .order('created_at', { ascending: false });
     
   if (error) {
+    console.error('Error fetching materials:', error);
     throw new Error(error.message);
   }
   
@@ -71,7 +77,7 @@ export const useMaterials = () => {
 
   // Mutation to add a new material
   const addMaterialMutation = useMutation({
-    mutationFn: async (material: Omit<Material, 'id'>) => {
+    mutationFn: async (material: Omit<Material, 'id' | 'created_at' | 'updated_at'>) => {
       const { data, error } = await supabase
         .from('materials')
         .insert(appToDbMaterial(material))
@@ -79,18 +85,20 @@ export const useMaterials = () => {
         .single();
       
       if (error) {
+        console.error('Error adding material:', error);
         throw new Error(error.message);
       }
       
       return dbToAppMaterial(data);
     },
     onSuccess: (newMaterial) => {
-      queryClient.setQueryData(['materials'], (old: Material[] = []) => [...old, newMaterial]);
+      queryClient.setQueryData(['materials'], (old: Material[] = []) => [newMaterial, ...old]);
       toast.success(`Material "${newMaterial.name}" added successfully`);
       setOpenDialog(false);
       resetForm();
     },
     onError: (error: Error) => {
+      console.error('Add material error:', error);
       toast.error(`Failed to add material: ${error.message}`);
     },
     onSettled: () => {
@@ -109,6 +117,7 @@ export const useMaterials = () => {
         .single();
       
       if (error) {
+        console.error('Error updating material:', error);
         throw new Error(error.message);
       }
       
@@ -127,6 +136,7 @@ export const useMaterials = () => {
       return { previousMaterials };
     },
     onError: (error: Error, _, context) => {
+      console.error('Update material error:', error);
       if (context?.previousMaterials) {
         queryClient.setQueryData(['materials'], context.previousMaterials);
       }
@@ -151,6 +161,7 @@ export const useMaterials = () => {
         .eq('id', id);
       
       if (error) {
+        console.error('Error deleting material:', error);
         throw new Error(error.message);
       }
       
@@ -169,6 +180,7 @@ export const useMaterials = () => {
       return { previousMaterials };
     },
     onError: (error: Error, _, context) => {
+      console.error('Delete material error:', error);
       if (context?.previousMaterials) {
         queryClient.setQueryData(['materials'], context.previousMaterials);
       }
@@ -246,10 +258,12 @@ export const useMaterials = () => {
     if (selectedMaterial) {
       updateMaterialMutation.mutate({
         id: selectedMaterial.id,
+        created_at: selectedMaterial.created_at,
+        updated_at: selectedMaterial.updated_at,
         ...materialData
       });
     } else {
-      addMaterialMutation.mutate(materialData as Omit<Material, 'id'>);
+      addMaterialMutation.mutate(materialData);
     }
   };
 
