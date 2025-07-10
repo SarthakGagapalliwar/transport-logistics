@@ -1,6 +1,7 @@
+
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase, DbTransporter, handleSupabaseError } from '@/lib/supabase';
+import { supabase, DbTransporter } from '@/lib/supabase';
 import { toast } from 'sonner';
 
 // Type for our app's transporter format
@@ -11,7 +12,7 @@ export interface Transporter {
   contactPerson: string;
   contactNumber: string;
   address: string;
-  active: boolean; // Add the active property
+  active: boolean;
 }
 
 // Convert DB format to app format
@@ -22,7 +23,7 @@ const dbToAppTransporter = (dbTransporter: DbTransporter): Transporter => ({
   contactPerson: dbTransporter.contact_person,
   contactNumber: dbTransporter.contact_number,
   address: dbTransporter.address,
-  active: dbTransporter.active, // Map the active property
+  active: dbTransporter.active,
 });
 
 // Convert app format to DB format
@@ -32,22 +33,21 @@ const appToDbTransporter = (transporter: Partial<Transporter>) => ({
   contact_person: transporter.contactPerson,
   contact_number: transporter.contactNumber,
   address: transporter.address,
-  active: transporter.active, // Include the active property
+  active: transporter.active,
 });
 
-// Isolate the data fetching function to avoid circular dependencies
+// Isolate the data fetching function
 export const fetchTransporters = async () => {
   const { data, error } = await supabase
     .from('transporters')
     .select('*')
     .order('name');
-  
+    
   if (error) {
-    console.error('Error fetching transporters:', error);
     throw new Error(error.message);
   }
-
-  return (data as DbTransporter[]).map(dbToAppTransporter);
+  
+  return data.map(dbToAppTransporter);
 };
 
 export const useTransporters = () => {
@@ -61,20 +61,20 @@ export const useTransporters = () => {
     contactPerson: '',
     contactNumber: '',
     address: '',
-    active: true,
   });
 
-  // Query to fetch transporters
+  // Query to fetch transporters with optimized caching
   const { 
     data: transporters = [], 
     isLoading, 
-    error,
-    refetch 
+    error 
   } = useQuery({
     queryKey: ['transporters'],
     queryFn: fetchTransporters,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: false,
+    retry: 2,
   });
 
   // Mutation to add a new transporter
@@ -90,82 +90,113 @@ export const useTransporters = () => {
         throw new Error(error.message);
       }
       
-      return dbToAppTransporter(data as DbTransporter);
+      return dbToAppTransporter(data);
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['transporters'] });
-      toast.success(`Transporter "${data.name}" added successfully`);
+    onSuccess: (newTransporter) => {
+      // Optimistically update the cache
+      queryClient.setQueryData(['transporters'], (old: Transporter[] = []) => [...old, newTransporter]);
+      toast.success(`Transporter "${newTransporter.name}" added successfully`);
       setOpenDialog(false);
       resetForm();
     },
     onError: (error: Error) => {
       toast.error(`Failed to add transporter: ${error.message}`);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['transporters'] });
     }
   });
 
   // Mutation to update a transporter
   const updateTransporterMutation = useMutation({
     mutationFn: async (transporter: Transporter) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('transporters')
         .update(appToDbTransporter(transporter))
+        .eq('id', transporter.id)
+        .select()
+        .single();
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      return dbToAppTransporter(data);
+    },
+    onMutate: async (updatedTransporter) => {
+      await queryClient.cancelQueries({ queryKey: ['transporters'] });
+      const previousTransporters = queryClient.getQueryData<Transporter[]>(['transporters']);
+      
+      if (previousTransporters) {
+        queryClient.setQueryData<Transporter[]>(['transporters'], 
+          previousTransporters.map(t => t.id === updatedTransporter.id ? updatedTransporter : t)
+        );
+      }
+      
+      return { previousTransporters };
+    },
+    onError: (error: Error, _, context) => {
+      if (context?.previousTransporters) {
+        queryClient.setQueryData(['transporters'], context.previousTransporters);
+      }
+      toast.error(`Failed to update transporter: ${error.message}`);
+    },
+    onSuccess: (updatedTransporter) => {
+      toast.success(`Transporter "${updatedTransporter.name}" updated successfully`);
+      setOpenDialog(false);
+      resetForm();
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['transporters'] });
+    }
+  });
+
+  // Mutation to toggle transporter active status
+  const toggleActiveMutation = useMutation({
+    mutationFn: async (transporter: Transporter) => {
+      const { error } = await supabase
+        .from('transporters')
+        .update({ active: !transporter.active })
         .eq('id', transporter.id);
       
       if (error) {
         throw new Error(error.message);
       }
       
-      return transporter;
+      return { ...transporter, active: !transporter.active };
     },
-    onSuccess: (transporter) => {
-      queryClient.invalidateQueries({ queryKey: ['transporters'] });
-      toast.success(`Transporter "${transporter.name}" updated successfully`);
-      setOpenDialog(false);
-      resetForm();
-    },
-    onError: (error: Error) => {
-      toast.error(`Failed to update transporter: ${error.message}`);
-    }
-  });
-
-  // Mutation to delete a transporter
-  const deleteTransporterMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('transporters')
-        .delete()
-        .eq('id', id);
+    onMutate: async (transporter) => {
+      await queryClient.cancelQueries({ queryKey: ['transporters'] });
+      const previousTransporters = queryClient.getQueryData<Transporter[]>(['transporters']);
       
-      if (error) {
-        console.error('Error deleting transporter:', error);
-        throw new Error(error.message);
+      if (previousTransporters) {
+        queryClient.setQueryData<Transporter[]>(['transporters'], 
+          previousTransporters.map(t => t.id === transporter.id ? { ...t, active: !t.active } : t)
+        );
       }
       
-      return id;
+      return { previousTransporters };
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['transporters'] });
-      
-      // Find the deleted transporter's name for the success message
-      const deletedTransporter = transporters.find(t => t.id === variables);
-      if (deletedTransporter) {
-        toast.success(`Transporter "${deletedTransporter.name}" deleted successfully`);
-      } else {
-        toast.success('Transporter deleted successfully');
+    onError: (error: Error, _, context) => {
+      if (context?.previousTransporters) {
+        queryClient.setQueryData(['transporters'], context.previousTransporters);
       }
-      
-      // Force a refetch
-      setTimeout(() => {
-        refetch();
-      }, 100);
+      toast.error(`Failed to update transporter status: ${error.message}`);
     },
-    onError: (error: Error) => {
-      toast.error(`Failed to delete transporter: ${error.message}`);
+    onSuccess: (updatedTransporter) => {
+      toast.success(
+        `Transporter "${updatedTransporter.name}" ${
+          updatedTransporter.active ? 'activated' : 'deactivated'
+        } successfully`
+      );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['transporters'] });
     }
   });
 
   // Handle input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -179,7 +210,6 @@ export const useTransporters = () => {
       contactPerson: transporter.contactPerson,
       contactNumber: transporter.contactNumber,
       address: transporter.address,
-      active: transporter.active, // Include active property
     });
     setOpenDialog(true);
   };
@@ -199,7 +229,6 @@ export const useTransporters = () => {
       contactPerson: '',
       contactNumber: '',
       address: '',
-      active: true, // Reset active to true by default
     });
   };
 
@@ -207,33 +236,33 @@ export const useTransporters = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Basic validation
+    if (!formData.name || !formData.gstn || !formData.contactPerson || !formData.contactNumber || !formData.address) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
+    const transporterData = {
+      ...formData,
+      active: true, // Set active to true by default for new transporters
+    };
+    
     if (selectedTransporter) {
       // Update existing transporter
       updateTransporterMutation.mutate({
         id: selectedTransporter.id,
-        name: formData.name,
-        gstn: formData.gstn,
-        contactPerson: formData.contactPerson,
-        contactNumber: formData.contactNumber,
-        address: formData.address,
-        active: formData.active, // Include active property
+        active: selectedTransporter.active, // Preserve active status on update
+        ...transporterData
       });
     } else {
       // Add new transporter
-      addTransporterMutation.mutate({
-        name: formData.name,
-        gstn: formData.gstn,
-        contactPerson: formData.contactPerson,
-        contactNumber: formData.contactNumber,
-        address: formData.address,
-        active: formData.active, // Include active property
-      } as Omit<Transporter, 'id'>);
+      addTransporterMutation.mutate(transporterData as Omit<Transporter, 'id'>);
     }
   };
 
-  // Handle transporter deletion
-  const handleDeleteTransporter = (id: string) => {
-    deleteTransporterMutation.mutate(id);
+  // Handle toggling transporter active status
+  const handleToggleActive = (transporter: Transporter) => {
+    toggleActiveMutation.mutate(transporter);
   };
 
   return {
@@ -244,13 +273,12 @@ export const useTransporters = () => {
     setOpenDialog,
     selectedTransporter,
     formData,
-    setFormData,
     handleInputChange,
     handleEditTransporter,
     handleAddTransporter,
     handleSubmit,
-    handleDeleteTransporter,
+    handleToggleActive,
     isSubmitting: addTransporterMutation.isPending || updateTransporterMutation.isPending,
-    isDeleting: deleteTransporterMutation.isPending,
+    isToggling: toggleActiveMutation.isPending,
   };
 };

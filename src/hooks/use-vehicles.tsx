@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, DbVehicle, handleSupabaseError } from '@/lib/supabase';
@@ -69,8 +70,8 @@ export const useVehicles = () => {
   const { data: allTransporters = [] } = useQuery({
     queryKey: ['transporters'],
     queryFn: fetchTransporters,
-    staleTime: 3 * 60 * 1000, // 3 minutes
-    gcTime: 8 * 60 * 1000, // 8 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
   
   // Filter out inactive transporters
@@ -85,7 +86,7 @@ export const useVehicles = () => {
     status: 'Available',
   });
 
-  // Query to fetch vehicles
+  // Query to fetch vehicles with better caching
   const { 
     data: vehicles = [], 
     isLoading, 
@@ -93,11 +94,13 @@ export const useVehicles = () => {
   } = useQuery({
     queryKey: ['vehicles'],
     queryFn: fetchVehicles,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 3 * 60 * 1000, // 3 minutes
+    gcTime: 8 * 60 * 1000, // 8 minutes
+    refetchOnWindowFocus: false,
+    retry: 2,
   });
 
-  // Mutation to add a new vehicle
+  // Mutation to add a new vehicle with better error handling
   const addVehicleMutation = useMutation({
     mutationFn: async (vehicle: Omit<Vehicle, 'id'>) => {
       const { data, error } = await supabase
@@ -118,39 +121,74 @@ export const useVehicles = () => {
         transporterName: data.transporters?.name || 'Unknown',
       };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-      toast.success(`Vehicle "${formData.vehicleNumber}" added successfully`);
+    onSuccess: (newVehicle) => {
+      // Optimistically update the cache
+      queryClient.setQueryData(['vehicles'], (old: Vehicle[] = []) => [...old, newVehicle]);
+      toast.success(`Vehicle "${newVehicle.vehicleNumber}" added successfully`);
       setOpenDialog(false);
       resetForm();
     },
     onError: (error: Error) => {
       toast.error(`Failed to add vehicle: ${error.message}`);
+    },
+    onSettled: () => {
+      // Ensure data is fresh after mutation
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
     }
   });
 
-  // Mutation to update a vehicle
+  // Mutation to update a vehicle with optimistic updates
   const updateVehicleMutation = useMutation({
     mutationFn: async (vehicle: Vehicle) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('vehicles')
         .update(appToDbVehicle(vehicle))
-        .eq('id', vehicle.id);
+        .eq('id', vehicle.id)
+        .select(`
+          *,
+          transporters:transporter_id (name)
+        `)
+        .single();
       
       if (error) {
         throw new Error(error.message);
       }
       
-      return vehicle;
+      return {
+        ...dbToAppVehicle(data),
+        transporterName: data.transporters?.name || 'Unknown',
+      };
     },
-    onSuccess: (vehicle) => {
-      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-      toast.success(`Vehicle "${vehicle.vehicleNumber}" updated successfully`);
+    onMutate: async (updatedVehicle) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['vehicles'] });
+      
+      // Snapshot previous value
+      const previousVehicles = queryClient.getQueryData<Vehicle[]>(['vehicles']);
+      
+      // Optimistically update
+      if (previousVehicles) {
+        queryClient.setQueryData<Vehicle[]>(['vehicles'], 
+          previousVehicles.map(v => v.id === updatedVehicle.id ? updatedVehicle : v)
+        );
+      }
+      
+      return { previousVehicles };
+    },
+    onError: (error: Error, _, context) => {
+      // Rollback on error
+      if (context?.previousVehicles) {
+        queryClient.setQueryData(['vehicles'], context.previousVehicles);
+      }
+      toast.error(`Failed to update vehicle: ${error.message}`);
+    },
+    onSuccess: (updatedVehicle) => {
+      toast.success(`Vehicle "${updatedVehicle.vehicleNumber}" updated successfully`);
       setOpenDialog(false);
       resetForm();
     },
-    onError: (error: Error) => {
-      toast.error(`Failed to update vehicle: ${error.message}`);
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
     }
   });
 
@@ -168,19 +206,34 @@ export const useVehicles = () => {
       
       return id;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ['vehicles'] });
+      const previousVehicles = queryClient.getQueryData<Vehicle[]>(['vehicles']);
       
-      // Find the deleted vehicle's info for the success message
-      const deletedVehicle = vehicles.find(v => v.id === variables);
+      if (previousVehicles) {
+        queryClient.setQueryData<Vehicle[]>(['vehicles'], 
+          previousVehicles.filter(v => v.id !== deletedId)
+        );
+      }
+      
+      return { previousVehicles };
+    },
+    onError: (error: Error, _, context) => {
+      if (context?.previousVehicles) {
+        queryClient.setQueryData(['vehicles'], context.previousVehicles);
+      }
+      toast.error(`Failed to delete vehicle: ${error.message}`);
+    },
+    onSuccess: (_, deletedId) => {
+      const deletedVehicle = vehicles.find(v => v.id === deletedId);
       if (deletedVehicle) {
         toast.success(`Vehicle "${deletedVehicle.vehicleNumber}" deleted successfully`);
       } else {
         toast.success('Vehicle deleted successfully');
       }
     },
-    onError: (error: Error) => {
-      toast.error(`Failed to delete vehicle: ${error.message}`);
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
     }
   });
 
@@ -196,18 +249,35 @@ export const useVehicles = () => {
         throw new Error(error.message);
       }
       
-      return vehicle;
+      return { ...vehicle, active: !vehicle.active };
     },
-    onSuccess: (vehicle) => {
-      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+    onMutate: async (vehicle) => {
+      await queryClient.cancelQueries({ queryKey: ['vehicles'] });
+      const previousVehicles = queryClient.getQueryData<Vehicle[]>(['vehicles']);
+      
+      if (previousVehicles) {
+        queryClient.setQueryData<Vehicle[]>(['vehicles'], 
+          previousVehicles.map(v => v.id === vehicle.id ? { ...v, active: !v.active } : v)
+        );
+      }
+      
+      return { previousVehicles };
+    },
+    onError: (error: Error, _, context) => {
+      if (context?.previousVehicles) {
+        queryClient.setQueryData(['vehicles'], context.previousVehicles);
+      }
+      toast.error(`Failed to update vehicle status: ${error.message}`);
+    },
+    onSuccess: (updatedVehicle) => {
       toast.success(
-        `Vehicle "${vehicle.vehicleNumber}" ${
-          vehicle.active ? 'deactivated' : 'activated'
+        `Vehicle "${updatedVehicle.vehicleNumber}" ${
+          updatedVehicle.active ? 'activated' : 'deactivated'
         } successfully`
       );
     },
-    onError: (error: Error) => {
-      toast.error(`Failed to update vehicle status: ${error.message}`);
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
     }
   });
 
@@ -255,14 +325,25 @@ export const useVehicles = () => {
     });
   };
 
-  // Handle form submission
+  // Handle form submission with better validation
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Basic validation
+    if (!formData.transporterId || !formData.vehicleNumber || !formData.capacity) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
     
     // If vehicle type is "Other", use the custom type instead
     const finalVehicleType = formData.vehicleType === 'Other' 
       ? formData.customVehicleType 
       : formData.vehicleType;
+    
+    if (formData.vehicleType === 'Other' && !formData.customVehicleType) {
+      toast.error('Please specify the custom vehicle type');
+      return;
+    }
     
     const vehicleData = {
       transporterId: formData.transporterId,
@@ -311,7 +392,7 @@ export const useVehicles = () => {
     handleAddVehicle,
     handleSubmit,
     handleDeleteVehicle,
-    handleToggleActive, // Export the handle toggle function
+    handleToggleActive,
     isSubmitting: addVehicleMutation.isPending || updateVehicleMutation.isPending,
     isDeleting: deleteVehicleMutation.isPending,
     isToggling: toggleActiveMutation.isPending,

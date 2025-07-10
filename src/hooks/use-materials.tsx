@@ -1,31 +1,47 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
+import { supabase, DbMaterial } from '@/lib/supabase';
 import { toast } from 'sonner';
 
+// Type for our app's material format
 export interface Material {
   id: string;
   name: string;
   description: string | null;
   unit: string;
   status: string;
-  created_at: string;
-  updated_at: string;
 }
 
-// Fetch all materials
+// Convert DB format to app format
+const dbToAppMaterial = (dbMaterial: DbMaterial): Material => ({
+  id: dbMaterial.id,
+  name: dbMaterial.name,
+  description: dbMaterial.description,
+  unit: dbMaterial.unit,
+  status: dbMaterial.status,
+});
+
+// Convert app format to DB format
+const appToDbMaterial = (material: Partial<Material>) => ({
+  name: material.name,
+  description: material.description,
+  unit: material.unit,
+  status: material.status,
+});
+
+// Isolate the data fetching function
 export const fetchMaterials = async () => {
   const { data, error } = await supabase
     .from('materials')
     .select('*')
-    .order('created_at', { ascending: false });
-
+    .order('name');
+    
   if (error) {
     throw new Error(error.message);
   }
-
-  return data as Material[];
+  
+  return data.map(dbToAppMaterial);
 };
 
 export const useMaterials = () => {
@@ -33,7 +49,6 @@ export const useMaterials = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   
-  // Form state
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -41,7 +56,7 @@ export const useMaterials = () => {
     status: 'available',
   });
 
-  // Query to fetch materials
+  // Query to fetch materials with optimized caching
   const { 
     data: materials = [], 
     isLoading, 
@@ -50,69 +65,81 @@ export const useMaterials = () => {
     queryKey: ['materials'],
     queryFn: fetchMaterials,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes (renamed from cacheTime)
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: false,
+    retry: 2,
   });
 
   // Mutation to add a new material
   const addMaterialMutation = useMutation({
-    mutationFn: async (material: Omit<Material, 'id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (material: Omit<Material, 'id'>) => {
       const { data, error } = await supabase
         .from('materials')
-        .insert([{
-          name: material.name,
-          description: material.description || null,
-          unit: material.unit,
-          status: material.status
-        }])
+        .insert(appToDbMaterial(material))
         .select()
         .single();
-
+      
       if (error) {
         throw new Error(error.message);
       }
-
-      return data as Material;
+      
+      return dbToAppMaterial(data);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['materials'] });
-      toast.success('Material added successfully');
+    onSuccess: (newMaterial) => {
+      queryClient.setQueryData(['materials'], (old: Material[] = []) => [...old, newMaterial]);
+      toast.success(`Material "${newMaterial.name}" added successfully`);
       setOpenDialog(false);
       resetForm();
     },
     onError: (error: Error) => {
       toast.error(`Failed to add material: ${error.message}`);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['materials'] });
     }
   });
 
-  // Mutation to update an existing material
+  // Mutation to update a material
   const updateMaterialMutation = useMutation({
-    mutationFn: async ({ id, ...material }: Partial<Material> & { id: string }) => {
+    mutationFn: async (material: Material) => {
       const { data, error } = await supabase
         .from('materials')
-        .update({
-          name: material.name,
-          description: material.description || null,
-          unit: material.unit,
-          status: material.status
-        })
-        .eq('id', id)
+        .update(appToDbMaterial(material))
+        .eq('id', material.id)
         .select()
         .single();
-
+      
       if (error) {
         throw new Error(error.message);
       }
-
-      return data as Material;
+      
+      return dbToAppMaterial(data);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['materials'] });
-      toast.success('Material updated successfully');
+    onMutate: async (updatedMaterial) => {
+      await queryClient.cancelQueries({ queryKey: ['materials'] });
+      const previousMaterials = queryClient.getQueryData<Material[]>(['materials']);
+      
+      if (previousMaterials) {
+        queryClient.setQueryData<Material[]>(['materials'], 
+          previousMaterials.map(m => m.id === updatedMaterial.id ? updatedMaterial : m)
+        );
+      }
+      
+      return { previousMaterials };
+    },
+    onError: (error: Error, _, context) => {
+      if (context?.previousMaterials) {
+        queryClient.setQueryData(['materials'], context.previousMaterials);
+      }
+      toast.error(`Failed to update material: ${error.message}`);
+    },
+    onSuccess: (updatedMaterial) => {
+      toast.success(`Material "${updatedMaterial.name}" updated successfully`);
       setOpenDialog(false);
       resetForm();
     },
-    onError: (error: Error) => {
-      toast.error(`Failed to update material: ${error.message}`);
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['materials'] });
     }
   });
 
@@ -123,25 +150,52 @@ export const useMaterials = () => {
         .from('materials')
         .delete()
         .eq('id', id);
-
+      
       if (error) {
         throw new Error(error.message);
       }
-
+      
       return id;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['materials'] });
-      toast.success('Material deleted successfully');
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ['materials'] });
+      const previousMaterials = queryClient.getQueryData<Material[]>(['materials']);
+      
+      if (previousMaterials) {
+        queryClient.setQueryData<Material[]>(['materials'], 
+          previousMaterials.filter(m => m.id !== deletedId)
+        );
+      }
+      
+      return { previousMaterials };
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _, context) => {
+      if (context?.previousMaterials) {
+        queryClient.setQueryData(['materials'], context.previousMaterials);
+      }
       toast.error(`Failed to delete material: ${error.message}`);
+    },
+    onSuccess: (_, deletedId) => {
+      const deletedMaterial = materials.find(m => m.id === deletedId);
+      if (deletedMaterial) {
+        toast.success(`Material "${deletedMaterial.name}" deleted successfully`);
+      } else {
+        toast.success('Material deleted successfully');
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['materials'] });
     }
   });
 
   // Handle input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Handle select changes
+  const handleSelectChange = (name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
@@ -178,15 +232,14 @@ export const useMaterials = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate required fields
-    if (!formData.name.trim()) {
-      toast.error('Material name is required');
+    if (!formData.name || !formData.unit) {
+      toast.error('Please fill in all required fields');
       return;
     }
     
     const materialData = {
-      name: formData.name.trim(),
-      description: formData.description.trim() || null,
+      name: formData.name,
+      description: formData.description || null,
       unit: formData.unit,
       status: formData.status,
     };
@@ -197,11 +250,14 @@ export const useMaterials = () => {
         ...materialData
       });
     } else {
-      addMaterialMutation.mutate(materialData as Omit<Material, 'id' | 'created_at' | 'updated_at'>);
+      addMaterialMutation.mutate(materialData as Omit<Material, 'id'>);
     }
   };
 
-  const isSubmitting = addMaterialMutation.isPending || updateMaterialMutation.isPending;
+  // Handle material deletion
+  const handleDeleteMaterial = (id: string) => {
+    deleteMaterialMutation.mutate(id);
+  };
 
   return {
     materials,
@@ -212,10 +268,12 @@ export const useMaterials = () => {
     selectedMaterial,
     formData,
     handleInputChange,
+    handleSelectChange,
     handleEditMaterial,
     handleAddMaterial,
     handleSubmit,
-    isSubmitting,
-    deleteMaterialMutation
+    handleDeleteMaterial,
+    isSubmitting: addMaterialMutation.isPending || updateMaterialMutation.isPending,
+    isDeleting: deleteMaterialMutation.isPending,
   };
 };
