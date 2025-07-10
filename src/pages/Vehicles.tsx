@@ -60,9 +60,11 @@ const Vehicles = () => {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "N/A";
     try {
-      return format(new Date(dateString), "MMM d, yyyy");
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "N/A";
+      return format(date, "MMM d, yyyy");
     } catch (error) {
-      return "Invalid date";
+      return "N/A";
     }
   };
 
