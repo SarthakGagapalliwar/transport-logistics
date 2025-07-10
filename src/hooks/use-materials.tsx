@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, DbMaterial } from '@/lib/supabase';
@@ -188,7 +187,7 @@ export const useMaterials = () => {
     }
   });
 
-  // Handle input changes
+  // Handle input changes for text inputs and textareas
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -273,6 +272,7 @@ export const useMaterials = () => {
     handleAddMaterial,
     handleSubmit,
     handleDeleteMaterial,
+    deleteMaterialMutation,
     isSubmitting: addMaterialMutation.isPending || updateMaterialMutation.isPending,
     isDeleting: deleteMaterialMutation.isPending,
   };

@@ -61,6 +61,7 @@ const Materials = () => {
     selectedMaterial,
     formData,
     handleInputChange,
+    handleSelectChange,
     handleEditMaterial,
     handleAddMaterial,
     handleSubmit,
@@ -142,15 +143,11 @@ const Materials = () => {
   };
 
   const handleUnitChange = (value: string) => {
-    handleInputChange({
-      target: { name: 'unit', value }
-    } as React.ChangeEvent<HTMLSelectElement>);
+    handleSelectChange('unit', value);
   };
 
   const handleStatusChange = (value: string) => {
-    handleInputChange({
-      target: { name: 'status', value }
-    } as React.ChangeEvent<HTMLSelectElement>);
+    handleSelectChange('status', value);
   };
 
   return (
