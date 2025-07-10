@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, DbVehicle, handleSupabaseError } from '@/lib/supabase';
@@ -100,6 +99,14 @@ export const useVehicles = () => {
     retry: 2,
   });
 
+  // Function to check if vehicle number already exists
+  const isVehicleNumberDuplicate = (vehicleNumber: string, excludeId?: string) => {
+    return vehicles.some(vehicle => 
+      vehicle.vehicleNumber.toLowerCase() === vehicleNumber.toLowerCase() && 
+      vehicle.id !== excludeId
+    );
+  };
+
   // Mutation to add a new vehicle with better error handling
   const addVehicleMutation = useMutation({
     mutationFn: async (vehicle: Omit<Vehicle, 'id'>) => {
@@ -113,6 +120,10 @@ export const useVehicles = () => {
         .single();
       
       if (error) {
+        // Check if it's a unique constraint violation
+        if (error.code === '23505' && error.message.includes('vehicles_vehicle_number_unique')) {
+          throw new Error('Vehicle number already exists. Please use a different vehicle number.');
+        }
         throw new Error(error.message);
       }
       
@@ -129,6 +140,7 @@ export const useVehicles = () => {
       resetForm();
     },
     onError: (error: Error) => {
+      console.error('Add vehicle error:', error);
       toast.error(`Failed to add vehicle: ${error.message}`);
     },
     onSettled: () => {
@@ -151,6 +163,10 @@ export const useVehicles = () => {
         .single();
       
       if (error) {
+        // Check if it's a unique constraint violation
+        if (error.code === '23505' && error.message.includes('vehicles_vehicle_number_unique')) {
+          throw new Error('Vehicle number already exists. Please use a different vehicle number.');
+        }
         throw new Error(error.message);
       }
       
@@ -180,6 +196,7 @@ export const useVehicles = () => {
       if (context?.previousVehicles) {
         queryClient.setQueryData(['vehicles'], context.previousVehicles);
       }
+      console.error('Update vehicle error:', error);
       toast.error(`Failed to update vehicle: ${error.message}`);
     },
     onSuccess: (updatedVehicle) => {
@@ -334,6 +351,17 @@ export const useVehicles = () => {
       toast.error('Please fill in all required fields');
       return;
     }
+
+    // Check for duplicate vehicle number (client-side validation)
+    const isDuplicate = isVehicleNumberDuplicate(
+      formData.vehicleNumber, 
+      selectedVehicle?.id
+    );
+    
+    if (isDuplicate) {
+      toast.error('Vehicle number already exists. Please use a different vehicle number.');
+      return;
+    }
     
     // If vehicle type is "Other", use the custom type instead
     const finalVehicleType = formData.vehicleType === 'Other' 
@@ -397,5 +425,6 @@ export const useVehicles = () => {
     isDeleting: deleteVehicleMutation.isPending,
     isToggling: toggleActiveMutation.isPending,
     transporters,
+    isVehicleNumberDuplicate,
   };
 };
