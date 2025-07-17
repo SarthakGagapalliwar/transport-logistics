@@ -107,7 +107,7 @@ export const useVehicles = () => {
     );
   };
 
-  // Mutation to add a new vehicle with better error handling
+  // Mutation to add a new vehicle with optimized performance
   const addVehicleMutation = useMutation({
     mutationFn: async (vehicle: Omit<Vehicle, 'id'>) => {
       const { data, error } = await supabase
@@ -132,24 +132,53 @@ export const useVehicles = () => {
         transporterName: data.transporters?.name || 'Unknown',
       };
     },
-    onSuccess: (newVehicle) => {
+    onMutate: async (newVehicle) => {
+      // Cancel outgoing refetches to prevent race conditions
+      await queryClient.cancelQueries({ queryKey: ['vehicles'] });
+      
+      // Snapshot previous value
+      const previousVehicles = queryClient.getQueryData<Vehicle[]>(['vehicles']);
+      
+      // Create optimistic vehicle with temporary ID
+      const optimisticVehicle = {
+        id: `temp-${Date.now()}`,
+        ...newVehicle,
+        transporterName: transporters.find(t => t.id === newVehicle.transporterId)?.name || 'Unknown',
+      };
+      
       // Optimistically update the cache
-      queryClient.setQueryData(['vehicles'], (old: Vehicle[] = []) => [...old, newVehicle]);
+      if (previousVehicles) {
+        queryClient.setQueryData<Vehicle[]>(['vehicles'], [...previousVehicles, optimisticVehicle]);
+      }
+      
+      return { previousVehicles, optimisticVehicle };
+    },
+    onSuccess: (newVehicle, _, context) => {
+      // Replace optimistic update with real data
+      queryClient.setQueryData<Vehicle[]>(['vehicles'], (old: Vehicle[] = []) => 
+        old.map(v => v.id === context?.optimisticVehicle.id ? newVehicle : v)
+      );
       toast.success(`Vehicle "${newVehicle.vehicleNumber}" added successfully`);
       setOpenDialog(false);
       resetForm();
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _, context) => {
+      // Rollback optimistic update
+      if (context?.previousVehicles) {
+        queryClient.setQueryData(['vehicles'], context.previousVehicles);
+      }
       console.error('Add vehicle error:', error);
       toast.error(`Failed to add vehicle: ${error.message}`);
     },
     onSettled: () => {
-      // Ensure data is fresh after mutation
-      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      // Debounced invalidation to prevent multiple refetches
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      }, 100);
     }
   });
 
-  // Mutation to update a vehicle with optimistic updates
+  // Mutation to update a vehicle with optimized performance
   const updateVehicleMutation = useMutation({
     mutationFn: async (vehicle: Vehicle) => {
       const { data, error } = await supabase
@@ -176,16 +205,22 @@ export const useVehicles = () => {
       };
     },
     onMutate: async (updatedVehicle) => {
-      // Cancel outgoing refetches
+      // Cancel outgoing refetches to prevent race conditions
       await queryClient.cancelQueries({ queryKey: ['vehicles'] });
       
       // Snapshot previous value
       const previousVehicles = queryClient.getQueryData<Vehicle[]>(['vehicles']);
       
-      // Optimistically update
+      // Add transporter name for optimistic update
+      const enhancedVehicle = {
+        ...updatedVehicle,
+        transporterName: transporters.find(t => t.id === updatedVehicle.transporterId)?.name || 'Unknown',
+      };
+      
+      // Optimistically update with enhanced data
       if (previousVehicles) {
         queryClient.setQueryData<Vehicle[]>(['vehicles'], 
-          previousVehicles.map(v => v.id === updatedVehicle.id ? updatedVehicle : v)
+          previousVehicles.map(v => v.id === updatedVehicle.id ? enhancedVehicle : v)
         );
       }
       
@@ -200,12 +235,19 @@ export const useVehicles = () => {
       toast.error(`Failed to update vehicle: ${error.message}`);
     },
     onSuccess: (updatedVehicle) => {
+      // Update cache with real data from server
+      queryClient.setQueryData<Vehicle[]>(['vehicles'], (old: Vehicle[] = []) =>
+        old.map(v => v.id === updatedVehicle.id ? updatedVehicle : v)
+      );
       toast.success(`Vehicle "${updatedVehicle.vehicleNumber}" updated successfully`);
       setOpenDialog(false);
       resetForm();
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      // Debounced invalidation
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      }, 100);
     }
   });
 
@@ -342,13 +384,25 @@ export const useVehicles = () => {
     });
   };
 
-  // Handle form submission with better validation
-  const handleSubmit = (e: React.FormEvent) => {
+  // Handle form submission with optimized performance
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prevent double submission
+    if (addVehicleMutation.isPending || updateVehicleMutation.isPending) {
+      return;
+    }
     
     // Basic validation
     if (!formData.transporterId || !formData.vehicleNumber || !formData.capacity) {
       toast.error('Please fill in all required fields');
+      return;
+    }
+
+    // Validate capacity is a positive number
+    const capacity = Number(formData.capacity);
+    if (isNaN(capacity) || capacity <= 0) {
+      toast.error('Please enter a valid capacity');
       return;
     }
 
@@ -375,24 +429,29 @@ export const useVehicles = () => {
     
     const vehicleData = {
       transporterId: formData.transporterId,
-      vehicleNumber: formData.vehicleNumber,
+      vehicleNumber: formData.vehicleNumber.trim(),
       vehicleType: finalVehicleType,
-      capacity: Number(formData.capacity),
+      capacity,
       status: formData.status,
-      lastMaintenance: new Date().toISOString(),
+      lastMaintenance: selectedVehicle?.lastMaintenance || new Date().toISOString(),
       active: true, // Set active to true by default for new vehicles
     };
     
-    if (selectedVehicle) {
-      // Update existing vehicle
-      updateVehicleMutation.mutate({
-        id: selectedVehicle.id,
-        active: selectedVehicle.active, // Preserve active status on update
-        ...vehicleData
-      });
-    } else {
-      // Add new vehicle
-      addVehicleMutation.mutate(vehicleData as Omit<Vehicle, 'id'>);
+    try {
+      if (selectedVehicle) {
+        // Update existing vehicle
+        await updateVehicleMutation.mutateAsync({
+          id: selectedVehicle.id,
+          active: selectedVehicle.active, // Preserve active status on update
+          ...vehicleData
+        });
+      } else {
+        // Add new vehicle
+        await addVehicleMutation.mutateAsync(vehicleData as Omit<Vehicle, 'id'>);
+      }
+    } catch (error) {
+      // Error handling is done in mutation callbacks
+      console.error('Form submission error:', error);
     }
   };
 
