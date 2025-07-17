@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -70,7 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Helper to convert Supabase user to our app user
-  const setUserFromSession = async (session: Session) => {
+  const setUserFromSession = useCallback(async (session: Session) => {
     const supabaseUser = session.user;
     
     if (!supabaseUser) return;
@@ -95,10 +95,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: supabaseUser.email,
       active: data?.active // Add active status from profile data
     });
-  };
+  }, []);
 
   // Login function
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     setLoading(true);
     
     try {
@@ -128,7 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
       return false;
     }
-  };
+  }, []);
 
   // Signup function
   const signup = async (email: string, password: string, username: string): Promise<boolean> => {
@@ -203,31 +203,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Logout function
-  const logout = async () => {
+  const logout = useCallback(async () => {
+    setLoading(true);
     const { error } = await supabase.auth.signOut();
     
     if (error) {
       toast.error('Error signing out');
+      setLoading(false);
       return;
     }
     
     setUser(null);
+    setLoading(false);
     toast.info('You have been logged out');
     navigate('/signin');
-  };
+  }, [navigate]);
+
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    user,
+    loading,
+    login,
+    signup,
+    logout,
+    isAuthenticated: !!user,
+    createUser
+  }), [user, loading, login, signup, logout, createUser]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        login,
-        signup,
-        logout,
-        isAuthenticated: !!user,
-        createUser
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
