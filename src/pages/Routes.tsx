@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Helmet } from "react-helmet";
 import PageTransition from "@/components/ui-custom/PageTransition";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
@@ -29,7 +30,11 @@ import {
   Package,
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useRoutes } from "@/hooks/use-routes";
+import {
+  useRoutesQuery,
+  useAddRoute,
+  useUpdateRoute,
+} from "@/hooks/use-routes";
 import { useAuth } from "@/context/AuthContext";
 import { Column } from "@/types/data-table";
 import {
@@ -39,27 +44,95 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import useShipments from "@/hooks/use-shipments";
+import { usePackagesQuery } from "@/hooks/use-packages";
+import type { Route } from "@/integrations/supabase/types";
+
+interface RouteFormData {
+  assignedPackageId: string;
+  source: string;
+  destination: string;
+  distanceKm: string;
+  billingRatePerTon: string;
+  vendorRatePerTon: string;
+}
+
+const initialFormData: RouteFormData = {
+  assignedPackageId: "",
+  source: "",
+  destination: "",
+  distanceKm: "",
+  billingRatePerTon: "",
+  vendorRatePerTon: "",
+};
 
 const RoutesPage = () => {
-  const {
-    routes,
-    isLoading,
-    openDialog,
-    setOpenDialog,
-    selectedRoute,
-    formData,
-    handleInputChange,
-    handleSelectChange,
-    handleEditRoute,
-    handleAddRoute,
-    handleSubmit,
-    isSubmitting,
-  } = useRoutes();
+  const { data: routes = [], isLoading } = useRoutesQuery();
+  const addMutation = useAddRoute();
+  const updateMutation = useUpdateRoute();
 
-  const { packages, activePackages } = useShipments();
+  const { data: packages = [] } = usePackagesQuery();
+  const activePackages = packages.filter((p) => p.active);
   const isMobile = useIsMobile();
   const { user } = useAuth();
+
+  const [openDialog, setOpenDialog] = useState(false);
+  const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
+  const [formData, setFormData] = useState<RouteFormData>(initialFormData);
+
+  const isSubmitting = addMutation.isPending || updateMutation.isPending;
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddRoute = () => {
+    setSelectedRoute(null);
+    setFormData(initialFormData);
+    setOpenDialog(true);
+  };
+
+  const handleEditRoute = (route: Route) => {
+    setSelectedRoute(route);
+    setFormData({
+      assignedPackageId: route.assignedPackageId || "",
+      source: route.source || "",
+      destination: route.destination || "",
+      distanceKm: route.distanceKm?.toString() || "",
+      billingRatePerTon: route.billingRatePerTon?.toString() || "",
+      vendorRatePerTon: route.vendorRatePerTon?.toString() || "",
+    });
+    setOpenDialog(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const payload = {
+      assignedPackageId:
+        formData.assignedPackageId === "none"
+          ? null
+          : formData.assignedPackageId || null,
+      source: formData.source,
+      destination: formData.destination,
+      distanceKm: parseFloat(formData.distanceKm),
+      billingRatePerTon: parseFloat(formData.billingRatePerTon),
+      vendorRatePerTon: parseFloat(formData.vendorRatePerTon),
+    };
+
+    if (selectedRoute) {
+      updateMutation.mutate(
+        { id: selectedRoute.id, ...payload },
+        { onSuccess: () => setOpenDialog(false) }
+      );
+    } else {
+      addMutation.mutate(payload, { onSuccess: () => setOpenDialog(false) });
+    }
+  };
 
   // Columns for the data table
   const columns: Column[] = [
@@ -91,7 +164,7 @@ const RoutesPage = () => {
     {
       header: "Vendor Rate",
       accessorKey: "vendorRatePerTon",
-    }
+    },
   ];
 
   if (user?.role === "admin") {
@@ -125,9 +198,15 @@ const RoutesPage = () => {
   const mobileColumns = isMobile
     ? columns.filter((col) => {
         if (typeof col.header === "string") {
-          return ["Package",  "Origin", "Destination", "Distance", "Billing Rate", "Vendor Rate", "Actions"].includes(
-            col.header
-          );
+          return [
+            "Package",
+            "Origin",
+            "Destination",
+            "Distance",
+            "Billing Rate",
+            "Vendor Rate",
+            "Actions",
+          ].includes(col.header);
         }
         return false;
       })
@@ -192,8 +271,7 @@ const RoutesPage = () => {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-                <div className="space-y-2 sm:col-span-2">
+                  <div className="space-y-2 sm:col-span-2">
                     <Label htmlFor="assignedPackageId">Assign to Package</Label>
                     <div className="relative">
                       <Package className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />

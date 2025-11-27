@@ -1,5 +1,4 @@
-
-import React from "react";
+import React, { useState } from "react";
 import { Helmet } from "react-helmet";
 import { format } from "date-fns";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
@@ -30,29 +29,128 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Plus, Edit, Truck, Calendar, ToggleLeft, ToggleRight } from "lucide-react";
+import {
+  Plus,
+  Edit,
+  Truck,
+  Calendar,
+  ToggleLeft,
+  ToggleRight,
+} from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useVehicles } from "@/hooks/use-vehicles";
+import {
+  useVehiclesQuery,
+  useAddVehicle,
+  useUpdateVehicle,
+  useToggleVehicleActive,
+  useIsVehicleNumberDuplicate,
+} from "@/hooks/use-vehicles";
+import { useTransportersQuery } from "@/hooks/use-transporters";
 import { useAuth } from "@/context/AuthContext";
+import type { Vehicle, Transporter } from "@/integrations/supabase/types";
+
+interface VehicleFormData {
+  transporterId: string;
+  vehicleNumber: string;
+  vehicleType: string;
+  customVehicleType: string;
+  capacity: string;
+  status: string;
+}
+
+const initialFormData: VehicleFormData = {
+  transporterId: "",
+  vehicleNumber: "",
+  vehicleType: "Truck",
+  customVehicleType: "",
+  capacity: "",
+  status: "Available",
+};
 
 const Vehicles = () => {
-  const {
-    vehicles,
-    isLoading,
-    openDialog,
-    setOpenDialog,
-    selectedVehicle,
-    formData,
-    handleInputChange,
-    handleSelectChange,
-    handleEditVehicle,
-    handleAddVehicle,
-    handleSubmit,
-    handleToggleActive,
-    isSubmitting,
-    isToggling,
-    transporters,
-  } = useVehicles();
+  const { data: vehicles = [], isLoading } = useVehiclesQuery();
+  const { data: allTransporters = [] } = useTransportersQuery();
+  const addMutation = useAddVehicle();
+  const updateMutation = useUpdateVehicle();
+  const toggleMutation = useToggleVehicleActive();
+  const isVehicleNumberDuplicate = useIsVehicleNumberDuplicate();
+
+  // Filter active transporters for forms
+  const transporters = allTransporters.filter((t: Transporter) => t.active);
+
+  const [openDialog, setOpenDialog] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [formData, setFormData] = useState<VehicleFormData>(initialFormData);
+
+  const isSubmitting = addMutation.isPending || updateMutation.isPending;
+  const isToggling = toggleMutation.isPending;
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddVehicle = () => {
+    setSelectedVehicle(null);
+    setFormData(initialFormData);
+    setOpenDialog(true);
+  };
+
+  const handleEditVehicle = (vehicle: Vehicle) => {
+    setSelectedVehicle(vehicle);
+    setFormData({
+      transporterId: vehicle.transporterId || "",
+      vehicleNumber: vehicle.vehicleNumber,
+      vehicleType: vehicle.vehicleType || "Truck",
+      customVehicleType: "",
+      capacity: vehicle.capacity?.toString() || "",
+      status: vehicle.status || "Available",
+    });
+    setOpenDialog(true);
+  };
+
+  const handleToggleActive = (vehicle: Vehicle) => {
+    toggleMutation.mutate({ id: vehicle.id, active: !vehicle.active });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Check for duplicate vehicle numbers
+    const isDuplicate = isVehicleNumberDuplicate(
+      formData.vehicleNumber,
+      selectedVehicle?.id
+    );
+    if (isDuplicate) {
+      return; // The hook will show a toast error
+    }
+
+    const vehicleTypeValue =
+      formData.vehicleType === "Other"
+        ? formData.customVehicleType
+        : formData.vehicleType;
+
+    const payload = {
+      transporterId: formData.transporterId,
+      vehicleNumber: formData.vehicleNumber,
+      vehicleType: vehicleTypeValue,
+      capacity: parseFloat(formData.capacity),
+      status: formData.status,
+    };
+
+    if (selectedVehicle) {
+      updateMutation.mutate(
+        { id: selectedVehicle.id, ...payload },
+        { onSuccess: () => setOpenDialog(false) }
+      );
+    } else {
+      addMutation.mutate(payload, { onSuccess: () => setOpenDialog(false) });
+    }
+  };
 
   const isMobile = useIsMobile();
   const { user } = useAuth();
@@ -142,7 +240,9 @@ const Vehicles = () => {
 
   const mobileColumns = isMobile
     ? columns.filter((col) =>
-        ["Vehicle Number", "Transporter", "Type", "Status", "Actions"].includes(col.header)
+        ["Vehicle Number", "Transporter", "Type", "Status", "Actions"].includes(
+          col.header
+        )
       )
     : columns;
 
@@ -270,12 +370,14 @@ const Vehicles = () => {
 
                   {formData.vehicleType === "Other" && (
                     <div className="space-y-2">
-                      <Label htmlFor="customVehicleType">Custom Vehicle Type</Label>
+                      <Label htmlFor="customVehicleType">
+                        Custom Vehicle Type
+                      </Label>
                       <Input
                         id="customVehicleType"
                         name="customVehicleType"
                         placeholder="Enter custom vehicle type"
-                        value={formData.customVehicleType || ''}
+                        value={formData.customVehicleType || ""}
                         onChange={handleInputChange}
                         required
                       />

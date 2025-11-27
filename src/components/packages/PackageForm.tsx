@@ -1,10 +1,9 @@
-
-import { useEffect } from 'react';
-import { z } from 'zod';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useAuth } from '@/context/AuthContext';
-import { usePackages } from '@/hooks/use-packages';
+import { useEffect } from "react";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useAddPackage, useUpdatePackage } from "@/hooks/use-packages";
+import type { Package } from "@/integrations/supabase/types";
 
 import {
   Form,
@@ -16,7 +15,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from "lucide-react";
 
 const packageSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -24,18 +23,19 @@ const packageSchema = z.object({
 
 type PackageFormValues = z.infer<typeof packageSchema>;
 
-const PackageForm = () => {
-  const { user } = useAuth();
-  const { 
-    selectedPackage, 
-    addPackageMutation, 
-    updatePackageMutation,
-  } = usePackages();
+interface PackageFormProps {
+  selectedPackage?: Package | null;
+  onSuccess?: () => void;
+}
+
+const PackageForm = ({ selectedPackage, onSuccess }: PackageFormProps) => {
+  const addMutation = useAddPackage();
+  const updateMutation = useUpdatePackage();
 
   const form = useForm<PackageFormValues>({
     resolver: zodResolver(packageSchema),
     defaultValues: {
-      name: '',
+      name: "",
     },
   });
 
@@ -47,35 +47,41 @@ const PackageForm = () => {
       });
     } else {
       form.reset({
-        name: '',
+        name: "",
       });
     }
   }, [selectedPackage, form]);
 
   const onSubmit = (values: PackageFormValues) => {
     if (selectedPackage) {
-      updatePackageMutation.mutate({
-        id: selectedPackage.id,
-        name: values.name,
-        active: selectedPackage.active,
-      });
+      updateMutation.mutate(
+        {
+          id: selectedPackage.id,
+          name: values.name,
+          active: selectedPackage.active,
+        },
+        { onSuccess }
+      );
     } else {
-      addPackageMutation.mutate({
-        name: values.name,
-        active: true, // New packages are active by default
-      });
+      addMutation.mutate(
+        {
+          name: values.name,
+          active: true, // New packages are active by default
+        },
+        { onSuccess }
+      );
     }
   };
 
-  const isSubmitting = addPackageMutation.isPending || updatePackageMutation.isPending;
+  const isSubmitting = addMutation.isPending || updateMutation.isPending;
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <h2 className="text-lg font-semibold">
-          {selectedPackage ? 'Edit Package' : 'Add New Package'}
+          {selectedPackage ? "Edit Package" : "Add New Package"}
         </h2>
-        
+
         <div className="grid grid-cols-1 gap-4">
           <FormField
             control={form.control}
@@ -91,11 +97,11 @@ const PackageForm = () => {
             )}
           />
         </div>
-        
+
         <div className="flex justify-end space-x-2">
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {selectedPackage ? 'Update Package' : 'Create Package'}
+            {selectedPackage ? "Update Package" : "Create Package"}
           </Button>
         </div>
       </form>

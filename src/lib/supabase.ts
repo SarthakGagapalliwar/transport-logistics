@@ -1,244 +1,37 @@
-import { createClient } from "@supabase/supabase-js";
+/**
+ * Supabase client and type utilities.
+ * Re-exports the auto-generated client and provides type helpers.
+ */
+export { supabase } from "@/integrations/supabase/client";
+export type {
+  Database,
+  Tables,
+  TablesInsert,
+  TablesUpdate,
+} from "@/integrations/supabase/types";
 
-// These environment variables are automatically injected by the Supabase integration
-const supabaseUrl = "https://uvosmrargaueilecbycn.supabase.co";
-const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b3NtcmFyZ2F1ZWlsZWNieWNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUzNDc4MDUsImV4cCI6MjA2MDkyMzgwNX0.W05d74uqohoTa5-4Vdgh9GTi3Zpa1SlFtDf6GwaMlww";
-// Check if we're in development mode
-const isDevelopment = import.meta.env.MODE === "development";
+// Convenient table row type aliases (from auto-generated types)
+export type DbMaterial = Tables<"materials">;
+export type DbPackage = Tables<"packages">;
+export type DbProfile = Tables<"profiles">;
+export type DbRoute = Tables<"routes">;
+export type DbShipment = Tables<"shipments">;
+export type DbTransporter = Tables<"transporters">;
+export type DbVehicle = Tables<"vehicles">;
+export type DbUserSettings = Tables<"user_settings">;
 
-// Mock data storage for development
-const mockStorage = {
-  transporters: [],
-  vehicles: [],
-  routes: [],
-  shipments: [],
-  materials: [],
-};
+// Insert types
+export type DbMaterialInsert = TablesInsert<"materials">;
+export type DbPackageInsert = TablesInsert<"packages">;
+export type DbRouteInsert = TablesInsert<"routes">;
+export type DbShipmentInsert = TablesInsert<"shipments">;
+export type DbTransporterInsert = TablesInsert<"transporters">;
+export type DbVehicleInsert = TablesInsert<"vehicles">;
 
-// Create a mock client for development if variables are missing
-const createMockClient = () => {
-  console.warn(
-    "Using mock Supabase client. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for a real connection."
-  );
-
-  // Return a mock client with the same interface but no real operations
-  return {
-    auth: {
-      getSession: () =>
-        Promise.resolve({ data: { session: null }, error: null }),
-      signUp: ({ email, password }) =>
-        Promise.resolve({
-          data: { user: { id: "mock-user-id", email } },
-          error: null,
-        }),
-      signInWithPassword: () =>
-        Promise.resolve({
-          data: { user: { id: "mock-user-id", email: "mock@example.com" } },
-          error: null,
-        }),
-      signOut: () => Promise.resolve({ error: null }),
-      onAuthStateChange: (callback) => {
-        // Call callback once with a fake signed-in session
-        callback("SIGNED_IN", {
-          user: { id: "mock-user-id", email: "mock@example.com" },
-        });
-        return { data: { subscription: { unsubscribe: () => {} } } };
-      },
-    },
-    from: (table) => {
-      // Create a chainable API for mock data operations
-      const chainObj = {
-        select: (columns = "*") => {
-          const mockData = mockStorage[table] || [];
-
-          return {
-            eq: (column, value) => ({
-              single: () => {
-                const item = mockData.find((item) => item[column] === value);
-                return Promise.resolve({
-                  data: item || null,
-                  error: item ? null : { message: "No data found" },
-                });
-              },
-              data: mockData.filter((item) => item[column] === value),
-              error: null,
-            }),
-            order: () => chainObj,
-            data: mockData,
-            error: null,
-          };
-        },
-        insert: (data) => {
-          // Generate a mock ID if not provided
-          const newItem = {
-            id:
-              data.id ||
-              `mock-id-${Math.random().toString(36).substring(2, 10)}`,
-            ...data,
-            created_at: data.created_at || new Date().toISOString(),
-          };
-
-          // Add to mock storage
-          if (!mockStorage[table]) {
-            mockStorage[table] = [];
-          }
-          mockStorage[table].push(newItem);
-
-          // Add chainable select method to insert
-          const insertObj = {
-            select: () =>
-              Promise.resolve({
-                data: newItem,
-                error: null,
-              }),
-            single: () =>
-              Promise.resolve({
-                data: newItem,
-                error: null,
-              }),
-            data: newItem,
-            error: null,
-          };
-          return insertObj;
-        },
-        update: (data) => {
-          return {
-            eq: (column, value) => {
-              if (mockStorage[table]) {
-                const index = mockStorage[table].findIndex(
-                  (item) => item[column] === value
-                );
-                if (index >= 0) {
-                  mockStorage[table][index] = {
-                    ...mockStorage[table][index],
-                    ...data,
-                    updated_at: new Date().toISOString(),
-                  };
-                  return Promise.resolve({
-                    data: mockStorage[table][index],
-                    error: null,
-                  });
-                }
-              }
-
-              return Promise.resolve({
-                data: null,
-                error: null,
-              });
-            },
-            data: null,
-            error: null,
-          };
-        },
-        delete: () => {
-          return {
-            eq: (column, value) => {
-              if (mockStorage[table]) {
-                const initialLength = mockStorage[table].length;
-                const deletedItem = mockStorage[table].find(
-                  (item) => item[column] === value
-                );
-                mockStorage[table] = mockStorage[table].filter(
-                  (item) => item[column] !== value
-                );
-
-                return Promise.resolve({
-                  data: deletedItem || null,
-                  error: null,
-                });
-              }
-
-              return Promise.resolve({ data: null, error: null });
-            },
-            data: null,
-            error: null,
-          };
-        },
-        eq: () => Promise.resolve({ data: [], error: null }),
-      };
-
-      return chainObj;
-    },
-    rpc: () => Promise.resolve({ data: [], error: null }),
-  };
-};
-
-// Initialize the Supabase client
-export const supabase =
-  (!supabaseUrl || !supabaseAnonKey) && isDevelopment
-    ? (createMockClient() as any)
-    : createClient(supabaseUrl || "", supabaseAnonKey || "");
-
-// Helper function to handle Supabase errors consistently
-export const handleSupabaseError = (error: Error | null) => {
-  if (error) {
-    console.error("Supabase error:", error);
-    return error.message;
-  }
-  return null;
-};
-
-// Define types for our database tables
-export type DbTransporter = {
-  id: string;
-  name: string;
-  gstn: string;
-  contact_person: string;
-  contact_number: string;
-  address: string;
-  created_at: string;
-  active: boolean; // Add the active property
-};
-
-export type DbVehicle = {
-  id: string;
-  transporter_id: string;
-  vehicle_number: string;
-  vehicle_type: string;
-  capacity: number;
-  status: string;
-  last_maintenance: string;
-  created_at: string;
-  active: boolean; // Add the active property
-};
-
-export type DbRoute = {
-  id: string;
-  source: string;
-  destination: string;
-  distance_km: number;
-  billing_rate_per_ton: number;
-  vendor_rate_per_ton: number;
-  estimated_time: number;
-  created_at: string;
-  assigned_package_id?: string;
-};
-
-export type DbShipment = {
-  id: string;
-  transporter_id: string;
-  vehicle_id: string;
-  source: string;
-  destination: string;
-  quantity_tons: number;
-  status: string;
-  departure_time: string;
-  arrival_time: string | null;
-  remarks?: string;
-  created_at: string;
-  route_id?: string;
-  package_id?: string;
-  material_id?: string;
-  gross_weight?: number; // Added this property
-  tare_weight?: number; // Added this property
-};
-
-export type DbMaterial = {
-  id: string;
-  name: string;
-  description: string | null;
-  unit: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-};
+// Update types
+export type DbMaterialUpdate = TablesUpdate<"materials">;
+export type DbPackageUpdate = TablesUpdate<"packages">;
+export type DbRouteUpdate = TablesUpdate<"routes">;
+export type DbShipmentUpdate = TablesUpdate<"shipments">;
+export type DbTransporterUpdate = TablesUpdate<"transporters">;
+export type DbVehicleUpdate = TablesUpdate<"vehicles">;

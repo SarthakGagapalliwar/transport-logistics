@@ -1,10 +1,12 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase, DbTransporter } from "@/lib/supabase";
+import { queryKeys, cacheConfig } from "@/lib/query-keys";
+import { toast } from "sonner";
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase, DbTransporter } from '@/lib/supabase';
-import { toast } from 'sonner';
+// ============================================================================
+// Types
+// ============================================================================
 
-// Type for our app's transporter format
 export interface Transporter {
   id: string;
   name: string;
@@ -15,270 +17,175 @@ export interface Transporter {
   active: boolean;
 }
 
-// Convert DB format to app format
-const dbToAppTransporter = (dbTransporter: DbTransporter): Transporter => ({
-  id: dbTransporter.id,
-  name: dbTransporter.name,
-  gstn: dbTransporter.gstn,
-  contactPerson: dbTransporter.contact_person,
-  contactNumber: dbTransporter.contact_number,
-  address: dbTransporter.address,
-  active: dbTransporter.active,
+export type TransporterInput = Omit<Transporter, "id">;
+
+// ============================================================================
+// Converters
+// ============================================================================
+
+const toTransporter = (db: DbTransporter): Transporter => ({
+  id: db.id,
+  name: db.name,
+  gstn: db.gstn,
+  contactPerson: db.contact_person,
+  contactNumber: db.contact_number,
+  address: db.address,
+  active: db.active,
 });
 
-// Convert app format to DB format
-const appToDbTransporter = (transporter: Partial<Transporter>) => ({
-  name: transporter.name,
-  gstn: transporter.gstn,
-  contact_person: transporter.contactPerson,
-  contact_number: transporter.contactNumber,
-  address: transporter.address,
-  active: transporter.active,
+const toDbInsert = (input: TransporterInput) => ({
+  name: input.name,
+  gstn: input.gstn,
+  contact_person: input.contactPerson,
+  contact_number: input.contactNumber,
+  address: input.address,
+  active: input.active,
 });
 
-// Isolate the data fetching function
-export const fetchTransporters = async () => {
+// ============================================================================
+// API Functions
+// ============================================================================
+
+export const fetchTransporters = async (): Promise<Transporter[]> => {
   const { data, error } = await supabase
-    .from('transporters')
-    .select('*')
-    .order('name');
-    
-  if (error) {
-    throw new Error(error.message);
-  }
-  
-  return data.map(dbToAppTransporter);
+    .from("transporters")
+    .select("*")
+    .order("name");
+
+  if (error) throw new Error(error.message);
+  return data.map(toTransporter);
 };
 
-export const useTransporters = () => {
-  const queryClient = useQueryClient();
-  const [openDialog, setOpenDialog] = useState(false);
-  const [selectedTransporter, setSelectedTransporter] = useState<Transporter | null>(null);
-  
-  const [formData, setFormData] = useState({
-    name: '',
-    gstn: '',
-    contactPerson: '',
-    contactNumber: '',
-    address: '',
-  });
+// ============================================================================
+// Query Hook
+// ============================================================================
 
-  // Query to fetch transporters with optimized caching
-  const { 
-    data: transporters = [], 
-    isLoading, 
-    error 
-  } = useQuery({
-    queryKey: ['transporters'],
+export const useTransportersQuery = () => {
+  return useQuery({
+    queryKey: queryKeys.transporters.all,
     queryFn: fetchTransporters,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
-    refetchOnWindowFocus: false,
-    retry: 2,
+    ...cacheConfig.standard,
   });
+};
 
-  // Mutation to add a new transporter
-  const addTransporterMutation = useMutation({
-    mutationFn: async (transporter: Omit<Transporter, 'id'>) => {
+// ============================================================================
+// Mutation Hooks
+// ============================================================================
+
+export const useAddTransporter = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: TransporterInput) => {
       const { data, error } = await supabase
-        .from('transporters')
-        .insert(appToDbTransporter(transporter))
+        .from("transporters")
+        .insert(toDbInsert(input))
         .select()
         .single();
-      
-      if (error) {
-        throw new Error(error.message);
-      }
-      
-      return dbToAppTransporter(data);
+
+      if (error) throw new Error(error.message);
+      return toTransporter(data);
     },
     onSuccess: (newTransporter) => {
-      // Optimistically update the cache
-      queryClient.setQueryData(['transporters'], (old: Transporter[] = []) => [...old, newTransporter]);
-      toast.success(`Transporter "${newTransporter.name}" added successfully`);
-      setOpenDialog(false);
-      resetForm();
+      queryClient.setQueryData<Transporter[]>(
+        queryKeys.transporters.all,
+        (old = []) => [...old, newTransporter]
+      );
+      toast.success(`Transporter "${newTransporter.name}" added`);
     },
     onError: (error: Error) => {
       toast.error(`Failed to add transporter: ${error.message}`);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['transporters'] });
-    }
+      queryClient.invalidateQueries({ queryKey: queryKeys.transporters.all });
+    },
   });
+};
 
-  // Mutation to update a transporter
-  const updateTransporterMutation = useMutation({
+export const useUpdateTransporter = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
     mutationFn: async (transporter: Transporter) => {
       const { data, error } = await supabase
-        .from('transporters')
-        .update(appToDbTransporter(transporter))
-        .eq('id', transporter.id)
+        .from("transporters")
+        .update(toDbInsert(transporter))
+        .eq("id", transporter.id)
         .select()
         .single();
-      
-      if (error) {
-        throw new Error(error.message);
-      }
-      
-      return dbToAppTransporter(data);
+
+      if (error) throw new Error(error.message);
+      return toTransporter(data);
     },
-    onMutate: async (updatedTransporter) => {
-      await queryClient.cancelQueries({ queryKey: ['transporters'] });
-      const previousTransporters = queryClient.getQueryData<Transporter[]>(['transporters']);
-      
-      if (previousTransporters) {
-        queryClient.setQueryData<Transporter[]>(['transporters'], 
-          previousTransporters.map(t => t.id === updatedTransporter.id ? updatedTransporter : t)
+    onMutate: async (updated) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.transporters.all });
+      const previous = queryClient.getQueryData<Transporter[]>(
+        queryKeys.transporters.all
+      );
+
+      if (previous) {
+        queryClient.setQueryData<Transporter[]>(
+          queryKeys.transporters.all,
+          previous.map((t) => (t.id === updated.id ? updated : t))
         );
       }
-      
-      return { previousTransporters };
+
+      return { previous };
     },
     onError: (error: Error, _, context) => {
-      if (context?.previousTransporters) {
-        queryClient.setQueryData(['transporters'], context.previousTransporters);
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.transporters.all, context.previous);
       }
       toast.error(`Failed to update transporter: ${error.message}`);
     },
-    onSuccess: (updatedTransporter) => {
-      toast.success(`Transporter "${updatedTransporter.name}" updated successfully`);
-      setOpenDialog(false);
-      resetForm();
+    onSuccess: (transporter) => {
+      toast.success(`Transporter "${transporter.name}" updated`);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['transporters'] });
-    }
-  });
-
-  // Mutation to toggle transporter active status
-  const toggleActiveMutation = useMutation({
-    mutationFn: async (transporter: Transporter) => {
-      const { error } = await supabase
-        .from('transporters')
-        .update({ active: !transporter.active })
-        .eq('id', transporter.id);
-      
-      if (error) {
-        throw new Error(error.message);
-      }
-      
-      return { ...transporter, active: !transporter.active };
+      queryClient.invalidateQueries({ queryKey: queryKeys.transporters.all });
     },
-    onMutate: async (transporter) => {
-      await queryClient.cancelQueries({ queryKey: ['transporters'] });
-      const previousTransporters = queryClient.getQueryData<Transporter[]>(['transporters']);
-      
-      if (previousTransporters) {
-        queryClient.setQueryData<Transporter[]>(['transporters'], 
-          previousTransporters.map(t => t.id === transporter.id ? { ...t, active: !t.active } : t)
+  });
+};
+
+export const useToggleTransporterActive = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase
+        .from("transporters")
+        .update({ active })
+        .eq("id", id);
+
+      if (error) throw new Error(error.message);
+      return { id, active };
+    },
+    onMutate: async ({ id, active }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.transporters.all });
+      const previous = queryClient.getQueryData<Transporter[]>(
+        queryKeys.transporters.all
+      );
+
+      if (previous) {
+        queryClient.setQueryData<Transporter[]>(
+          queryKeys.transporters.all,
+          previous.map((t) => (t.id === id ? { ...t, active } : t))
         );
       }
-      
-      return { previousTransporters };
+
+      return { previous };
     },
     onError: (error: Error, _, context) => {
-      if (context?.previousTransporters) {
-        queryClient.setQueryData(['transporters'], context.previousTransporters);
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.transporters.all, context.previous);
       }
-      toast.error(`Failed to update transporter status: ${error.message}`);
+      toast.error(`Failed to update status: ${error.message}`);
     },
-    onSuccess: (updatedTransporter) => {
-      toast.success(
-        `Transporter "${updatedTransporter.name}" ${
-          updatedTransporter.active ? 'activated' : 'deactivated'
-        } successfully`
-      );
+    onSuccess: ({ active }) => {
+      toast.success(`Transporter ${active ? "activated" : "deactivated"}`);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['transporters'] });
-    }
+      queryClient.invalidateQueries({ queryKey: queryKeys.transporters.all });
+    },
   });
-
-  // Handle input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  // Set up to edit a transporter
-  const handleEditTransporter = (transporter: Transporter) => {
-    setSelectedTransporter(transporter);
-    setFormData({
-      name: transporter.name,
-      gstn: transporter.gstn,
-      contactPerson: transporter.contactPerson,
-      contactNumber: transporter.contactNumber,
-      address: transporter.address,
-    });
-    setOpenDialog(true);
-  };
-
-  // Set up to add a new transporter
-  const handleAddTransporter = () => {
-    setSelectedTransporter(null);
-    resetForm();
-    setOpenDialog(true);
-  };
-
-  // Reset the form
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      gstn: '',
-      contactPerson: '',
-      contactNumber: '',
-      address: '',
-    });
-  };
-
-  // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Basic validation
-    if (!formData.name || !formData.gstn || !formData.contactPerson || !formData.contactNumber || !formData.address) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-    
-    const transporterData = {
-      ...formData,
-      active: true, // Set active to true by default for new transporters
-    };
-    
-    if (selectedTransporter) {
-      // Update existing transporter
-      updateTransporterMutation.mutate({
-        id: selectedTransporter.id,
-        active: selectedTransporter.active, // Preserve active status on update
-        ...transporterData
-      });
-    } else {
-      // Add new transporter
-      addTransporterMutation.mutate(transporterData as Omit<Transporter, 'id'>);
-    }
-  };
-
-  // Handle toggling transporter active status
-  const handleToggleActive = (transporter: Transporter) => {
-    toggleActiveMutation.mutate(transporter);
-  };
-
-  return {
-    transporters,
-    isLoading,
-    error,
-    openDialog,
-    setOpenDialog,
-    selectedTransporter,
-    formData,
-    handleInputChange,
-    handleEditTransporter,
-    handleAddTransporter,
-    handleSubmit,
-    handleToggleActive,
-    isSubmitting: addTransporterMutation.isPending || updateTransporterMutation.isPending,
-    isToggling: toggleActiveMutation.isPending,
-  };
 };

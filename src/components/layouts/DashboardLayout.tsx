@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -19,6 +19,28 @@ import {
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import type { QueryKey } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { fetchTransporters } from "@/hooks/use-transporters";
+import { fetchVehicles } from "@/hooks/use-vehicles";
+import { fetchRoutes } from "@/hooks/use-routes";
+import { fetchPackages } from "@/hooks/use-packages";
+import { fetchMaterials } from "@/hooks/use-materials";
+
+type PrefetchEntry = {
+  key: QueryKey;
+  fn: () => Promise<unknown>;
+  roles?: Array<"admin" | "user">;
+};
+
+const SIDEBAR_PREFETCHES: PrefetchEntry[] = [
+  { key: queryKeys.transporters.all, fn: fetchTransporters, roles: ["admin"] },
+  { key: queryKeys.vehicles.all, fn: fetchVehicles, roles: ["admin"] },
+  { key: queryKeys.routes.all, fn: fetchRoutes, roles: ["admin"] },
+  { key: queryKeys.packages.all, fn: fetchPackages, roles: ["admin"] },
+  { key: queryKeys.materials.all, fn: fetchMaterials, roles: ["admin"] },
+];
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -30,6 +52,34 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const location = useLocation();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const queryClient = useQueryClient();
+  const prefetchedKeys = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (!user) {
+      prefetchedKeys.current.clear();
+      return;
+    }
+
+    SIDEBAR_PREFETCHES.forEach(({ key, fn, roles }) => {
+      if (roles && !roles.includes(user.role)) {
+        return;
+      }
+
+      const hash = JSON.stringify(key);
+      if (prefetchedKeys.current.has(hash)) {
+        return;
+      }
+
+      prefetchedKeys.current.add(hash);
+      queryClient
+        .ensureQueryData({ queryKey: key, queryFn: fn })
+        .catch((error) => {
+          console.error("Prefetch failed", key, error);
+          prefetchedKeys.current.delete(hash);
+        });
+    });
+  }, [queryClient, user]);
 
   const handleLogout = async () => {
     try {

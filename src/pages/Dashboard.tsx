@@ -3,12 +3,7 @@ import PageTransition from "@/components/ui-custom/PageTransition";
 import DashboardCard from "@/components/ui-custom/DashboardCard";
 import { DataTable } from "@/components/ui-custom/DataTable";
 import { useAuth } from "@/context/AuthContext";
-import {
-  Truck,
-  Package,
-  TrendingUp,
-  AlertTriangle,
-} from "lucide-react";
+import { Truck, Package, TrendingUp, AlertTriangle } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -33,19 +28,40 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { Loader2 } from "lucide-react";
-import { useShipments } from "@/hooks/use-shipments";
-import { format } from 'date-fns';
+import {
+  useShipmentsQuery,
+  useUserProfileQuery,
+  Shipment,
+} from "@/hooks/use-shipments";
+import { format } from "date-fns";
 import { Column } from "@/types/data-table";
 
 const Dashboard = () => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const { revenueData, weeklyShipmentData, dashboardStats, isLoading: isAnalyticsLoading, error: analyticsError } = useAnalytics();
-  const { shipments, isLoading: isShipmentsLoading } = useShipments();
+  const isAdmin = user?.role === "admin";
+  const {
+    revenueData,
+    weeklyShipmentData,
+    dashboardStats,
+    isLoading: isAnalyticsLoading,
+    error: analyticsError,
+  } = useAnalytics();
+
+  // Get user packages for non-admin
+  const { data: userProfile } = useUserProfileQuery(
+    user?.id,
+    !!user && !isAdmin
+  );
+  const userPackages = userProfile?.assigned_packages ?? [];
+
+  // Fetch shipments
+  const { data: shipments = [], isLoading: isShipmentsLoading } =
+    useShipmentsQuery(isAdmin, userPackages, !!user);
 
   // Format date helper
   const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'MMM d, yyyy HH:mm');
+    return format(new Date(dateString), "MMM d, yyyy HH:mm");
   };
 
   // Responsive columns for shipment table
@@ -67,12 +83,14 @@ const Dashboard = () => {
     {
       header: "Billing Rate",
       accessorKey: "billingRatePerTon",
-      cell: (row: any) => row.billingRatePerTon ? formatCurrency(row.billingRatePerTon) : "N/A",
+      cell: (row: any) =>
+        row.billingRatePerTon ? formatCurrency(row.billingRatePerTon) : "N/A",
     },
     {
       header: "Vendor Rate",
       accessorKey: "vendorRatePerTon",
-      cell: (row: any) => row.vendorRatePerTon ? formatCurrency(row.vendorRatePerTon) : "N/A",
+      cell: (row: any) =>
+        row.vendorRatePerTon ? formatCurrency(row.vendorRatePerTon) : "N/A",
     },
     {
       header: "Departure",
@@ -84,7 +102,7 @@ const Dashboard = () => {
   // For mobile, show fewer columns
   const mobileShipmentColumns = isMobile
     ? shipmentColumns.filter((col) => {
-        if (typeof col.header === 'string') {
+        if (typeof col.header === "string") {
           return ["Transporter"].includes(col.header);
         }
         return false;
@@ -93,7 +111,11 @@ const Dashboard = () => {
 
   // Get recent shipments (last 5)
   const recentShipments = [...shipments]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .sort(
+      (a, b) =>
+        new Date(b.created_at || b.departureTime).getTime() -
+        new Date(a.created_at || a.departureTime).getTime()
+    )
     .slice(0, 5);
 
   const fadeInUpVariants = {
@@ -128,8 +150,12 @@ const Dashboard = () => {
         <div className="container py-6 flex justify-center items-center h-[80vh]">
           <div className="text-center">
             <AlertTriangle className="h-10 w-10 text-destructive mx-auto mb-4" />
-            <p className="text-destructive font-medium">Error loading dashboard data</p>
-            <p className="text-muted-foreground">{(analyticsError as Error).message}</p>
+            <p className="text-destructive font-medium">
+              Error loading dashboard data
+            </p>
+            <p className="text-muted-foreground">
+              {(analyticsError as Error).message}
+            </p>
           </div>
         </div>
       </DashboardLayout>
@@ -154,7 +180,10 @@ const Dashboard = () => {
               value={dashboardStats.activeShipments}
               icon={<Package size={24} />}
               description="Currently in transit"
-              trend={{ value: dashboardStats.shipmentTrend, isPositive: dashboardStats.shipmentTrend >= 0 }}
+              trend={{
+                value: dashboardStats.shipmentTrend,
+                isPositive: dashboardStats.shipmentTrend >= 0,
+              }}
             />
 
             <DashboardCard
@@ -176,7 +205,10 @@ const Dashboard = () => {
               value={formatCurrency(dashboardStats.revenueThisMonth)}
               icon={<TrendingUp size={24} />}
               description="Current month"
-              trend={{ value: dashboardStats.revenueTrend, isPositive: dashboardStats.revenueTrend >= 0 }}
+              trend={{
+                value: dashboardStats.revenueTrend,
+                isPositive: dashboardStats.revenueTrend >= 0,
+              }}
             />
           </div>
 
@@ -200,7 +232,10 @@ const Dashboard = () => {
                           data={revenueData}
                           margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                         >
-                          <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="#e0e0e0"
+                          />
                           <XAxis dataKey="month" />
                           <YAxis
                             tickFormatter={(value) =>
@@ -236,7 +271,9 @@ const Dashboard = () => {
                       </ResponsiveContainer>
                     ) : (
                       <div className="flex justify-center items-center h-full">
-                        <p className="text-muted-foreground">No revenue data available</p>
+                        <p className="text-muted-foreground">
+                          No revenue data available
+                        </p>
                       </div>
                     )}
                   </div>
@@ -265,7 +302,10 @@ const Dashboard = () => {
                           data={weeklyShipmentData}
                           margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                         >
-                          <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="#e0e0e0"
+                          />
                           <XAxis dataKey="week" />
                           <YAxis />
                           <Tooltip />
@@ -279,7 +319,9 @@ const Dashboard = () => {
                       </ResponsiveContainer>
                     ) : (
                       <div className="flex justify-center items-center h-full">
-                        <p className="text-muted-foreground">No shipment data available</p>
+                        <p className="text-muted-foreground">
+                          No shipment data available
+                        </p>
                       </div>
                     )}
                   </div>

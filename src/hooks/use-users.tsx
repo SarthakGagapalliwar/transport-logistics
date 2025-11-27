@@ -1,10 +1,14 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
-import { toast } from 'sonner';
-import { fetchPackages } from '@/hooks/use-packages';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
+import { queryKeys, cacheConfig } from "@/lib/query-keys";
+import { toast } from "sonner";
+import { usePackagesQuery } from "./use-packages";
 
-interface User {
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface User {
   id: string;
   username: string;
   email: string;
@@ -13,7 +17,7 @@ interface User {
   assignedPackages?: string[];
 }
 
-interface UserFormData {
+export interface UserFormData {
   name: string;
   email: string;
   role: string;
@@ -21,335 +25,230 @@ interface UserFormData {
   assignedPackages: string[];
 }
 
-export const useUsers = () => {
-  const queryClient = useQueryClient();
-  const [openDialog, setOpenDialog] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [formData, setFormData] = useState<UserFormData>({
-    name: '',
-    email: '',
-    role: 'user',
-    password: '',
-    assignedPackages: [],
-  });
+// ============================================================================
+// API Functions
+// ============================================================================
 
-  // Query to fetch packages 
-  const { data: availablePackages = [], isLoading: isLoadingPackages } = useQuery({
-    queryKey: ['packages'],
-    queryFn: fetchPackages,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
-  });
+const fetchUsers = async (): Promise<User[]> => {
+  const { data: profiles, error: profilesError } = await supabase
+    .from("profiles")
+    .select("*")
+    .order("created_at", { ascending: false });
 
-  // Query to fetch users from profiles table
-  const { 
-    data: users = [], 
-    isLoading, 
-    error,
-    refetch
-  } = useQuery({
-    queryKey: ['users'],
-    queryFn: async () => {
-      try {
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('*')
-          .order('created_at', { ascending: false });
-        
-        if (profilesError) {
-          throw profilesError;
-        }
-        
-        const userProfiles = await Promise.all(profiles.map(async (profile) => {
-          const { data: emailData, error: emailError } = await supabase
-            .rpc('get_user_email', { user_id: profile.id });
-          
-          const email = emailData && emailData.length > 0 ? emailData[0].email : '';
-          
-          return {
-            id: profile.id,
-            username: profile.username,
-            email: email || '',
-            role: profile.role,
-            active: profile.active !== undefined ? profile.active : true,
-            assignedPackages: profile.assigned_packages || []
-          };
-        }));
-        
-        return userProfiles as User[];
-      } catch (error) {
-        console.error('Error in user fetching:', error);
-        throw error;
-      }
-    },
-    staleTime: 3 * 60 * 1000, // 3 minutes
-    gcTime: 8 * 60 * 1000, // 8 minutes
-  });
+  if (profilesError) throw profilesError;
 
-  // Mutation to update a user
-  const updateUserMutation = useMutation({
-    mutationFn: async (user: User & { assignedPackages?: string[] }) => {
-      console.log('Updating user:', user);
-      
-      // First update user profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          username: user.username,
-          active: user.active
-        })
-        .eq('id', user.id);
-      
-      if (profileError) {
-        console.error('Profile update error:', profileError);
-        throw profileError;
-      }
-
-      // Then update the user role
-      const { error: roleError } = await supabase.rpc('assign_user_role', {
-        user_id: user.id,
-        user_role: user.role
+  // Batch fetch emails - better than N+1 but still not ideal
+  // TODO: Consider creating a database view or function that joins auth.users
+  const users = await Promise.all(
+    profiles.map(async (profile) => {
+      const { data: emailData } = await supabase.rpc("get_user_email", {
+        user_id: profile.id,
       });
-      
-      if (roleError) {
-        console.error('Role update error:', roleError);
-        throw roleError;
-      }
+      return {
+        id: profile.id,
+        username: profile.username,
+        email: emailData?.[0]?.email ?? "",
+        role: profile.role,
+        active: profile.active ?? true,
+        assignedPackages: profile.assigned_packages ?? [],
+      };
+    })
+  );
 
-      // Update assigned packages if provided
-      if (user.assignedPackages) {
-        const { error: packageError } = await supabase.rpc('assign_packages_to_user', {
-          user_id: user.id,
-          package_ids: user.assignedPackages
-        });
-        
-        if (packageError) {
-          console.error('Package assignment error:', packageError);
-          throw packageError;
-        }
-      }
-      
-      return user;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success('User updated successfully');
-      setOpenDialog(false);
-      resetForm();
-    },
-    onError: (error: Error) => {
-      console.error('Update user error:', error);
-      toast.error(`Failed to update user: ${error.message}`);
-    },
+  return users;
+};
+
+// ============================================================================
+// Query Hook
+// ============================================================================
+
+export const useUsersQuery = () => {
+  return useQuery({
+    queryKey: queryKeys.users.all,
+    queryFn: fetchUsers,
+    ...cacheConfig.standard,
   });
+};
 
-  // Mutation to add a new user
-  const addUserMutation = useMutation({
+// ============================================================================
+// Mutation Hooks
+// ============================================================================
+
+export const useAddUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
     mutationFn: async (userData: UserFormData) => {
-      try {
-        console.log('Adding new user:', userData.email);
-        
-        // Using built-in Auth API to create user
-        const { error: authError, data } = await supabase.functions.invoke('create-user', {
+      const { error: authError, data } = await supabase.functions.invoke(
+        "create-user",
+        {
           body: JSON.stringify({
             email: userData.email,
             password: userData.password,
             username: userData.name,
-            role: userData.role
-          })
-        });
-        
-        if (authError || !data?.success) {
-          throw new Error(authError?.message || data?.error || 'Failed to create user');
+            role: userData.role,
+          }),
         }
-        
-        const userId = data.user?.id;
-        if (!userId) {
-          throw new Error('No user ID returned from user creation');
-        }
-        
-        // Assign packages if any
-        if (userData.assignedPackages.length > 0) {
-          const { error } = await supabase.rpc('assign_packages_to_user', {
-            user_id: userId,
-            package_ids: userData.assignedPackages
-          });
-          
-          if (error) {
-            console.error('Error assigning packages:', error);
-            throw error;
-          }
-        }
-        
-        return data;
-      } catch (error: any) {
-        console.error('Add user error:', error);
-        throw new Error(error.message || 'An error occurred while creating the user');
+      );
+
+      if (authError || !data?.success) {
+        throw new Error(
+          authError?.message || data?.error || "Failed to create user"
+        );
       }
+
+      const userId = data.user?.id;
+      if (!userId) throw new Error("No user ID returned");
+
+      // Assign packages if any
+      if (userData.assignedPackages.length > 0) {
+        const { error } = await supabase.rpc("assign_packages_to_user", {
+          user_id: userId,
+          package_ids: userData.assignedPackages,
+        });
+        if (error) throw error;
+      }
+
+      return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success('User added successfully');
-      setOpenDialog(false);
-      resetForm();
+      toast.success("User added successfully");
     },
     onError: (error: Error) => {
       toast.error(`Failed to add user: ${error.message}`);
     },
-  });
-
-  // Mutation to toggle user access
-  const toggleUserAccessMutation = useMutation({
-    mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
-      console.log('Toggling user access:', userId, isActive);
-      const { error } = await supabase.rpc('toggle_user_access', {
-        user_id: userId,
-        is_active: isActive
-      });
-      
-      if (error) throw error;
-      
-      return { userId, isActive };
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success(`User ${data.isActive ? 'activated' : 'deactivated'} successfully`);
+  });
+};
+
+export const useUpdateUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (user: User & { assignedPackages?: string[] }) => {
+      // Update profile
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ username: user.username, active: user.active })
+        .eq("id", user.id);
+
+      if (profileError) throw profileError;
+
+      // Update role
+      const { error: roleError } = await supabase.rpc("assign_user_role", {
+        user_id: user.id,
+        user_role: user.role,
+      });
+
+      if (roleError) throw roleError;
+
+      // Update packages if provided
+      if (user.assignedPackages) {
+        const { error: packageError } = await supabase.rpc(
+          "assign_packages_to_user",
+          {
+            user_id: user.id,
+            package_ids: user.assignedPackages,
+          }
+        );
+        if (packageError) throw packageError;
+      }
+
+      return user;
+    },
+    onSuccess: () => {
+      toast.success("User updated successfully");
     },
     onError: (error: Error) => {
-      toast.error(`Failed to update user access: ${error.message}`);
+      toast.error(`Failed to update user: ${error.message}`);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
     },
   });
+};
 
-  // Mutation to change user password
-  const changePasswordMutation = useMutation({
-    mutationFn: async ({ userId, newPassword }: { userId: string; newPassword: string }) => {
-      console.log('Changing password for user:', userId);
-      
-      const { data, error } = await supabase.functions.invoke('change-user-password', {
-        body: JSON.stringify({
-          userId,
-          newPassword
-        })
+export const useToggleUserAccess = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      isActive,
+    }: {
+      userId: string;
+      isActive: boolean;
+    }) => {
+      const { error } = await supabase.rpc("toggle_user_access", {
+        user_id: userId,
+        is_active: isActive,
       });
-      
-      if (error || !data?.success) {
-        throw new Error(error?.message || data?.error || 'Failed to change password');
+      if (error) throw error;
+      return { userId, isActive };
+    },
+    onMutate: async ({ userId, isActive }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.users.all });
+      const previous = queryClient.getQueryData<User[]>(queryKeys.users.all);
+
+      if (previous) {
+        queryClient.setQueryData<User[]>(
+          queryKeys.users.all,
+          previous.map((u) =>
+            u.id === userId ? { ...u, active: isActive } : u
+          )
+        );
       }
-      
+
+      return { previous };
+    },
+    onError: (error: Error, _, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.users.all, context.previous);
+      }
+      toast.error(`Failed to update user access: ${error.message}`);
+    },
+    onSuccess: ({ isActive }) => {
+      toast.success(
+        `User ${isActive ? "activated" : "deactivated"} successfully`
+      );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
+    },
+  });
+};
+
+export const useChangePassword = () => {
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      newPassword,
+    }: {
+      userId: string;
+      newPassword: string;
+    }) => {
+      const { data, error } = await supabase.functions.invoke(
+        "change-user-password",
+        {
+          body: JSON.stringify({ userId, newPassword }),
+        }
+      );
+
+      if (error || !data?.success) {
+        throw new Error(
+          error?.message || data?.error || "Failed to change password"
+        );
+      }
+
       return data;
     },
     onSuccess: () => {
-      toast.success('Password changed successfully');
+      toast.success("Password changed successfully");
     },
     onError: (error: Error) => {
-      console.error('Change password error:', error);
       toast.error(`Failed to change password: ${error.message}`);
     },
   });
-
-  // Handle input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  // Handle select changes
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  // Handle package selection changes
-  const handlePackageSelectionChange = (selectedPackageIds: string[]) => {
-    setFormData(prev => ({ ...prev, assignedPackages: selectedPackageIds }));
-  };
-
-  // Set up to edit a user
-  const handleEditUser = (user: User) => {
-    setSelectedUser(user);
-    setFormData({
-      name: user.username,
-      email: user.email,
-      role: user.role,
-      password: '', // Password field will be disabled in edit mode
-      assignedPackages: user.assignedPackages || [],
-    });
-    setOpenDialog(true);
-  };
-
-  // Set up to add a new user
-  const handleAddUser = () => {
-    setSelectedUser(null);
-    resetForm();
-    setOpenDialog(true);
-  };
-
-  // Reset the form
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      email: '',
-      role: 'user',
-      password: '',
-      assignedPackages: [],
-    });
-  };
-
-  // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (selectedUser) {
-      // Update existing user
-      updateUserMutation.mutate({
-        ...selectedUser,
-        username: formData.name,
-        role: formData.role,
-        assignedPackages: formData.assignedPackages,
-      });
-    } else {
-      // Add new user
-      addUserMutation.mutate(formData);
-    }
-  };
-
-  // Handle toggling user access
-  const handleToggleUserAccess = (user: User) => {
-    toggleUserAccessMutation.mutate({
-      userId: user.id,
-      isActive: !user.active
-    });
-  };
-
-  // Handle changing user password
-  const handleChangePassword = (userId: string, newPassword: string) => {
-    changePasswordMutation.mutate({ userId, newPassword });
-  };
-
-  return {
-    users,
-    isLoading,
-    error,
-    openDialog,
-    setOpenDialog,
-    selectedUser,
-    setSelectedUser,
-    formData,
-    setFormData,
-    handleInputChange,
-    handleSelectChange,
-    handleEditUser,
-    handleAddUser,
-    handleSubmit,
-    toggleUserAccessMutation,
-    handleToggleUserAccess,
-    updateUserMutation,
-    addUserMutation,
-    isSubmitting: addUserMutation.isPending || updateUserMutation.isPending || toggleUserAccessMutation.isPending,
-    availablePackages,
-    isLoadingPackages,
-    handlePackageSelectionChange,
-    refetch,
-    changePasswordMutation,
-    handleChangePassword,
-  };
 };

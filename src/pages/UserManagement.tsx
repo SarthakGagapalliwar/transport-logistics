@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { Helmet } from 'react-helmet';
-import PageTransition from '@/components/ui-custom/PageTransition';
-import { DataTable } from '@/components/ui-custom/DataTable';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import React, { useState } from "react";
+import { Helmet } from "react-helmet";
+import PageTransition from "@/components/ui-custom/PageTransition";
+import { DataTable } from "@/components/ui-custom/DataTable";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -12,22 +12,22 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
+} from "@/components/ui/card";
 import {
   Plus,
   Edit,
@@ -39,58 +39,137 @@ import {
   ToggleLeft,
   ToggleRight,
   Shield,
-  Key
-} from 'lucide-react';
-import DashboardLayout from '@/components/layouts/DashboardLayout';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { useUsers } from '@/hooks/use-users';
-import { useAuth } from '@/context/AuthContext';
-import { Column } from '@/types/data-table';
-import { toast } from 'sonner';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+  Key,
+} from "lucide-react";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  useUsersQuery,
+  useAddUser,
+  useUpdateUser,
+  useToggleUserAccess,
+  useChangePassword,
+} from "@/hooks/use-users";
+import { usePackagesQuery } from "@/hooks/use-packages";
+import { useAuth } from "@/context/AuthContext";
+import { Column } from "@/types/data-table";
+import { toast } from "sonner";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import type { User as UserType } from "@/integrations/supabase/types";
+
+interface UserFormData {
+  name: string;
+  email: string;
+  role: string;
+  password: string;
+  assignedPackages: string[];
+}
+
+const initialFormData: UserFormData = {
+  name: "",
+  email: "",
+  role: "user",
+  password: "",
+  assignedPackages: [],
+};
 
 const UserManagement = () => {
-  const {
-    users,
-    isLoading,
-    openDialog,
-    setOpenDialog,
-    selectedUser,
-    setSelectedUser,
-    formData,
-    setFormData,
-    handleInputChange,
-    handleSelectChange,
-    handleEditUser,
-    handleAddUser,
-    handleSubmit,
-    toggleUserAccessMutation,
-    handleToggleUserAccess,
-    updateUserMutation,
-    addUserMutation,
-    isSubmitting,
-    availablePackages,
-    isLoadingPackages,
-    handlePackageSelectionChange,
-    changePasswordMutation,
-    handleChangePassword,
-  } = useUsers();
+  const { data: users = [], isLoading } = useUsersQuery();
+  const { data: availablePackages = [], isLoading: isLoadingPackages } =
+    usePackagesQuery();
+  const addMutation = useAddUser();
+  const updateMutation = useUpdateUser();
+  const toggleMutation = useToggleUserAccess();
+  const changePasswordMutation = useChangePassword();
+
+  const [openDialog, setOpenDialog] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
+  const [formData, setFormData] = useState<UserFormData>(initialFormData);
+
+  const isSubmitting = addMutation.isPending || updateMutation.isPending;
 
   const isMobile = useIsMobile();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === "admin";
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [passwordData, setPasswordData] = useState({
-    newPassword: '',
-    confirmPassword: ''
+    newPassword: "",
+    confirmPassword: "",
   });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handlePackageSelectionChange = (packages: string[]) => {
+    setFormData((prev) => ({ ...prev, assignedPackages: packages }));
+  };
+
+  const handleAddUser = () => {
+    setSelectedUser(null);
+    setFormData(initialFormData);
+    setOpenDialog(true);
+  };
+
+  const handleEditUser = (user: UserType) => {
+    setSelectedUser(user);
+    setFormData({
+      name: user.username || "",
+      email: user.email || "",
+      role: user.role || "user",
+      password: "",
+      assignedPackages: user.assignedPackages || [],
+    });
+    setOpenDialog(true);
+  };
+
+  const handleToggleUserAccess = (user: UserType) => {
+    toggleMutation.mutate({ id: user.id, active: !user.active });
+  };
+
+  const handleChangePassword = (userId: string, newPassword: string) => {
+    changePasswordMutation.mutate({ userId, newPassword });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (selectedUser) {
+      updateMutation.mutate(
+        {
+          id: selectedUser.id,
+          username: formData.name,
+          role: formData.role,
+          active: selectedUser.active,
+          assignedPackages: formData.assignedPackages,
+        },
+        { onSuccess: () => setOpenDialog(false) }
+      );
+    } else {
+      addMutation.mutate(
+        {
+          email: formData.email,
+          username: formData.name,
+          password: formData.password,
+          role: formData.role,
+          assignedPackages: formData.assignedPackages,
+        },
+        { onSuccess: () => setOpenDialog(false) }
+      );
+    }
+  };
 
   const handleSelectUser = (userId: string, checked: boolean) => {
     if (checked) {
       setSelectedUsers((prev) => [...prev, userId]);
     } else {
-      setSelectedUsers((prev) => prev.filter(id => id !== userId));
+      setSelectedUsers((prev) => prev.filter((id) => id !== userId));
     }
   };
 
@@ -98,48 +177,50 @@ const UserManagement = () => {
     if (checked) {
       handlePackageSelectionChange([...formData.assignedPackages, packageId]);
     } else {
-      handlePackageSelectionChange(formData.assignedPackages.filter(id => id !== packageId));
+      handlePackageSelectionChange(
+        formData.assignedPackages.filter((id) => id !== packageId)
+      );
     }
   };
 
   const handleRoleChange = (value: string) => {
-    handleSelectChange('role', value);
+    handleSelectChange("role", value);
   };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setPasswordData(prev => ({ ...prev, [name]: value }));
+    setPasswordData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error('Passwords do not match');
+      toast.error("Passwords do not match");
       return;
     }
-    
+
     if (passwordData.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters long');
+      toast.error("Password must be at least 6 characters long");
       return;
     }
-    
+
     if (selectedUser) {
       handleChangePassword(selectedUser.id, passwordData.newPassword);
       setShowPasswordDialog(false);
-      setPasswordData({ newPassword: '', confirmPassword: '' });
+      setPasswordData({ newPassword: "", confirmPassword: "" });
     }
   };
 
-  const openPasswordDialog = (user: any) => {
+  const openPasswordDialog = (user: UserType) => {
     setSelectedUser(user);
     setShowPasswordDialog(true);
   };
 
   const columns: Column[] = [
     {
-      header: 'Name',
-      accessorKey: 'username',
+      header: "Name",
+      accessorKey: "username",
       cell: (row: any) => (
         <div className="flex items-center space-x-2">
           <User className="h-4 w-4" />
@@ -148,8 +229,8 @@ const UserManagement = () => {
       ),
     },
     {
-      header: 'Email',
-      accessorKey: 'email',
+      header: "Email",
+      accessorKey: "email",
       cell: (row: any) => (
         <div className="flex items-center space-x-2">
           <Mail className="h-4 w-4" />
@@ -158,8 +239,8 @@ const UserManagement = () => {
       ),
     },
     {
-      header: 'Role',
-      accessorKey: 'role',
+      header: "Role",
+      accessorKey: "role",
       cell: (row: any) => (
         <div className="flex items-center space-x-2">
           <Shield className="h-4 w-4" />
@@ -168,8 +249,8 @@ const UserManagement = () => {
       ),
     },
     {
-      header: 'Status',
-      accessorKey: 'active',
+      header: "Status",
+      accessorKey: "active",
       cell: (row: any) => (
         <div className="flex items-center space-x-2">
           {row.active ? (
@@ -187,8 +268,8 @@ const UserManagement = () => {
       ),
     },
     {
-      header: 'Packages',
-      accessorKey: 'assignedPackages',
+      header: "Packages",
+      accessorKey: "assignedPackages",
       cell: (row: any) => (
         <div className="flex items-center space-x-2">
           <Package className="h-4 w-4" />
@@ -200,7 +281,7 @@ const UserManagement = () => {
 
   if (isAdmin) {
     columns.unshift({
-      id: 'select',
+      id: "select",
       header: ({ table }) => (
         <input
           type="checkbox"
@@ -208,7 +289,7 @@ const UserManagement = () => {
           onChange={(event) => {
             const isChecked = event.target.checked;
             if (isChecked) {
-              const allUserIds = users.map(user => user.id);
+              const allUserIds = users.map((user) => user.id);
               setSelectedUsers(allUserIds);
             } else {
               setSelectedUsers([]);
@@ -228,12 +309,12 @@ const UserManagement = () => {
         />
       ),
       enableSorting: false,
-      enableHiding: false
+      enableHiding: false,
     });
 
     columns.push({
-      header: 'Actions',
-      accessorKey: 'actions',
+      header: "Actions",
+      accessorKey: "actions",
       cell: (row) => (
         <div className="flex space-x-2">
           <Button
@@ -271,8 +352,8 @@ const UserManagement = () => {
 
   const mobileColumns = isMobile
     ? columns.filter((col) => {
-        if (typeof col.header === 'string') {
-          return ['Name', 'Email', 'Status', 'Actions'].includes(col.header);
+        if (typeof col.header === "string") {
+          return ["Name", "Email", "Status", "Actions"].includes(col.header);
         }
         return false;
       })
@@ -331,7 +412,7 @@ const UserManagement = () => {
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>
-                  {selectedUser ? 'Edit User' : 'Add New User'}
+                  {selectedUser ? "Edit User" : "Add New User"}
                 </DialogTitle>
                 <DialogDescription>
                   Fill in the details for the user
@@ -374,18 +455,22 @@ const UserManagement = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
-                  <RadioGroup 
-                    value={formData.role} 
+                  <RadioGroup
+                    value={formData.role}
                     onValueChange={handleRoleChange}
                     className="flex space-x-4"
                   >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="admin" id="role-admin" />
-                      <Label htmlFor="role-admin" className="cursor-pointer">Admin</Label>
+                      <Label htmlFor="role-admin" className="cursor-pointer">
+                        Admin
+                      </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="user" id="role-user" />
-                      <Label htmlFor="role-user" className="cursor-pointer">User</Label>
+                      <Label htmlFor="role-user" className="cursor-pointer">
+                        User
+                      </Label>
                     </div>
                   </RadioGroup>
                 </div>
@@ -408,13 +493,13 @@ const UserManagement = () => {
                 {selectedUser && (
                   <div className="space-y-2">
                     <Label htmlFor="status">Account Status</Label>
-                    <RadioGroup 
+                    <RadioGroup
                       value={selectedUser.active ? "active" : "inactive"}
                       onValueChange={(value) => {
                         if (selectedUser) {
                           setSelectedUser({
                             ...selectedUser,
-                            active: value === "active"
+                            active: value === "active",
                           });
                         }
                       }}
@@ -422,11 +507,21 @@ const UserManagement = () => {
                     >
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="active" id="status-active" />
-                        <Label htmlFor="status-active" className="cursor-pointer">Active</Label>
+                        <Label
+                          htmlFor="status-active"
+                          className="cursor-pointer"
+                        >
+                          Active
+                        </Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="inactive" id="status-inactive" />
-                        <Label htmlFor="status-inactive" className="cursor-pointer">Inactive</Label>
+                        <Label
+                          htmlFor="status-inactive"
+                          className="cursor-pointer"
+                        >
+                          Inactive
+                        </Label>
                       </div>
                     </RadioGroup>
                   </div>
@@ -440,19 +535,26 @@ const UserManagement = () => {
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
                       </div>
                     ) : availablePackages.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No packages available</p>
+                      <p className="text-sm text-muted-foreground">
+                        No packages available
+                      </p>
                     ) : (
                       <div className="space-y-2">
                         {availablePackages.map((pkg) => (
-                          <div key={pkg.id} className="flex items-center space-x-2">
-                            <Checkbox 
+                          <div
+                            key={pkg.id}
+                            className="flex items-center space-x-2"
+                          >
+                            <Checkbox
                               id={`package-${pkg.id}`}
-                              checked={formData.assignedPackages.includes(pkg.id)}
-                              onCheckedChange={(checked) => 
+                              checked={formData.assignedPackages.includes(
+                                pkg.id
+                              )}
+                              onCheckedChange={(checked) =>
                                 handleCheckboxChange(pkg.id, checked === true)
                               }
                             />
-                            <label 
+                            <label
                               htmlFor={`package-${pkg.id}`}
                               className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                             >
@@ -478,10 +580,10 @@ const UserManagement = () => {
                     {isSubmitting ? (
                       <>
                         <span className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white"></span>
-                        {selectedUser ? 'Updating...' : 'Adding...'}
+                        {selectedUser ? "Updating..." : "Adding..."}
                       </>
                     ) : (
-                      <>{selectedUser ? 'Update' : 'Add'} User</>
+                      <>{selectedUser ? "Update" : "Add"} User</>
                     )}
                   </Button>
                 </DialogFooter>
@@ -490,7 +592,10 @@ const UserManagement = () => {
           </Dialog>
 
           {/* Change Password Dialog */}
-          <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+          <Dialog
+            open={showPasswordDialog}
+            onOpenChange={setShowPasswordDialog}
+          >
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Change Password</DialogTitle>
@@ -532,20 +637,23 @@ const UserManagement = () => {
                     variant="outline"
                     onClick={() => {
                       setShowPasswordDialog(false);
-                      setPasswordData({ newPassword: '', confirmPassword: '' });
+                      setPasswordData({ newPassword: "", confirmPassword: "" });
                     }}
                     disabled={changePasswordMutation?.isPending}
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={changePasswordMutation?.isPending}>
+                  <Button
+                    type="submit"
+                    disabled={changePasswordMutation?.isPending}
+                  >
                     {changePasswordMutation?.isPending ? (
                       <>
                         <span className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white"></span>
                         Changing...
                       </>
                     ) : (
-                      'Change Password'
+                      "Change Password"
                     )}
                   </Button>
                 </DialogFooter>

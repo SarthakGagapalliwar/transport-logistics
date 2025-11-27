@@ -1,5 +1,4 @@
-
-import React from "react";
+import React, { useState } from "react";
 import { Helmet } from "react-helmet";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import PageTransition from "@/components/ui-custom/PageTransition";
@@ -30,57 +29,92 @@ import {
   MapPin,
   Building,
   FileText,
+  AlertTriangle,
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useTransporters } from "@/hooks/use-transporters";
+import {
+  useTransportersQuery,
+  useAddTransporter,
+  useUpdateTransporter,
+  useToggleTransporterActive,
+} from "@/hooks/use-transporters";
 import { useAuth } from "@/context/AuthContext";
 import { Column } from "@/types/data-table";
 import { Switch } from "@/components/ui/switch";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
-import { toast } from "sonner";
+import type { Transporter } from "@/integrations/supabase/types";
+
+interface TransporterFormData {
+  name: string;
+  gstn: string;
+  contactPerson: string;
+  contactNumber: string;
+  address: string;
+}
+
+const initialFormData: TransporterFormData = {
+  name: "",
+  gstn: "",
+  contactPerson: "",
+  contactNumber: "",
+  address: "",
+};
 
 const Transporters = () => {
-  const {
-    transporters,
-    isLoading,
-    openDialog,
-    setOpenDialog,
-    selectedTransporter,
-    formData,
-    handleInputChange,
-    handleEditTransporter,
-    handleAddTransporter,
-    handleSubmit,
-    isSubmitting,
-  } = useTransporters();
+  const { data: transporters = [], isLoading, error } = useTransportersQuery();
+  const addMutation = useAddTransporter();
+  const updateMutation = useUpdateTransporter();
+  const toggleMutation = useToggleTransporterActive();
 
-  const queryClient = useQueryClient();
+  const [openDialog, setOpenDialog] = useState(false);
+  const [selectedTransporter, setSelectedTransporter] =
+    useState<Transporter | null>(null);
+  const [formData, setFormData] =
+    useState<TransporterFormData>(initialFormData);
+
+  const isSubmitting = addMutation.isPending || updateMutation.isPending;
+  const isToggling = toggleMutation.isPending;
+
   const isMobile = useIsMobile();
   const { user } = useAuth();
 
-  // Optimized mutation for toggling active status
-  const toggleActiveMutation = useMutation({
-    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { error } = await supabase
-        .from('transporters')
-        .update({ active })
-        .eq('id', id);
-      
-      if (error) {
-        throw new Error(error.message);
-      }
-      
-      return { id, active };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['transporters'] });
-      toast.success('Transporter status updated successfully');
-    },
-    onError: (error: Error) => {
-      toast.error(`Failed to update transporter: ${error.message}`);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddTransporter = () => {
+    setSelectedTransporter(null);
+    setFormData(initialFormData);
+    setOpenDialog(true);
+  };
+
+  const handleEditTransporter = (transporter: Transporter) => {
+    setSelectedTransporter(transporter);
+    setFormData({
+      name: transporter.name,
+      gstn: transporter.gstn || "",
+      contactPerson: transporter.contactPerson || "",
+      contactNumber: transporter.contactNumber || "",
+      address: transporter.address || "",
+    });
+    setOpenDialog(true);
+  };
+
+  const handleToggleActive = (transporter: Transporter, active: boolean) => {
+    toggleMutation.mutate({ id: transporter.id, active });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedTransporter) {
+      updateMutation.mutate(
+        { id: selectedTransporter.id, ...formData },
+        { onSuccess: () => setOpenDialog(false) }
+      );
+    } else {
+      addMutation.mutate(formData, { onSuccess: () => setOpenDialog(false) });
     }
-  });
+  };
 
   const columns: Column[] = [
     {
@@ -109,12 +143,9 @@ const Transporters = () => {
         <Switch
           checked={row.active}
           onCheckedChange={(checked) => {
-            toggleActiveMutation.mutate({
-              id: row.id,
-              active: checked
-            });
+            handleToggleActive(row, checked);
           }}
-          disabled={toggleActiveMutation.isPending}
+          disabled={isToggling}
           aria-label="Toggle active status"
         />
       ),
@@ -138,8 +169,15 @@ const Transporters = () => {
 
   const mobileColumns = isMobile
     ? columns.filter((col) => {
-        if (typeof col.header === 'string') {
-          return ["Name","GST Number","Contact Person","Phone", "Status", "Actions"].includes(col.header);
+        if (typeof col.header === "string") {
+          return [
+            "Name",
+            "GST Number",
+            "Contact Person",
+            "Phone",
+            "Status",
+            "Actions",
+          ].includes(col.header);
         }
         return false;
       })
@@ -178,7 +216,17 @@ const Transporters = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
+              {error ? (
+                <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+                  <AlertTriangle className="h-6 w-6 text-destructive" />
+                  <p className="text-sm font-medium text-destructive">
+                    Failed to load transporters.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {(error as Error).message || "Please try again."}
+                  </p>
+                </div>
+              ) : isLoading ? (
                 <div className="flex justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>

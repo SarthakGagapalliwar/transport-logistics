@@ -1,229 +1,227 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
-import { toast } from 'sonner';
-import { useAuth } from '@/context/AuthContext';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase, DbPackage } from "@/lib/supabase";
+import { queryKeys, cacheConfig } from "@/lib/query-keys";
+import { toast } from "sonner";
+import { useAuth } from "@/context/AuthContext";
 
-// Type for package from database
-interface DbPackage {
-  id: string;
-  name: string;
-  created_by_id: string;
-  created_at: string;
-  updated_at: string;
-  active: boolean; // Add the active property
-}
+// ============================================================================
+// Types
+// ============================================================================
 
-// Type for package in application
 export interface Package {
   id: string;
   name: string;
   createdById: string;
   createdAt: string;
   updatedAt: string;
-  active: boolean; // Add the active property
+  active: boolean;
 }
 
-// Convert DB format to app format
-const dbToAppPackage = (dbPackage: DbPackage): Package => ({
-  id: dbPackage.id,
-  name: dbPackage.name,
-  createdById: dbPackage.created_by_id,
-  createdAt: dbPackage.created_at,
-  updatedAt: dbPackage.updated_at,
-  active: dbPackage.active,
+export type PackageInput = Pick<Package, "name" | "active">;
+
+// ============================================================================
+// Converters
+// ============================================================================
+
+const toPackage = (db: DbPackage): Package => ({
+  id: db.id,
+  name: db.name,
+  createdById: db.created_by_id,
+  createdAt: db.created_at,
+  updatedAt: db.updated_at,
+  active: db.active,
 });
 
-// Convert app format to DB format
-const appToDbPackage = (pkg: Partial<Package>) => ({
-  name: pkg.name,
-  active: pkg.active,
-});
+// ============================================================================
+// API Functions
+// ============================================================================
 
-// Isolate the data fetching function
-export const fetchPackages = async () => {
-  if (!supabase) return [];
-  
-  const { data, error } = await supabase
-    .from('packages')
-    .select('*');
-  
-  if (error) {
-    console.error('Error fetching packages:', error);
-    throw new Error(error.message);
-  }
-  
-  return (data as DbPackage[]).map(dbToAppPackage);
+export const fetchPackages = async (): Promise<Package[]> => {
+  const { data, error } = await supabase.from("packages").select("*");
+  if (error) throw new Error(error.message);
+  return data.map(toPackage);
 };
 
-export const usePackages = () => {
+// ============================================================================
+// Query Hooks
+// ============================================================================
+
+export const usePackagesQuery = (options?: { enabled?: boolean }) => {
+  return useQuery({
+    queryKey: queryKeys.packages.all,
+    queryFn: fetchPackages,
+    ...cacheConfig.standard,
+    ...options,
+  });
+};
+
+export const useAllUsersQuery = (options?: { enabled?: boolean }) => {
+  return useQuery({
+    queryKey: ["allUsers"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, username, role");
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+    ...cacheConfig.standard,
+    ...options,
+  });
+};
+
+// ============================================================================
+// Mutation Hooks
+// ============================================================================
+
+export const useAddPackage = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
-  
-  const [openDialog, setOpenDialog] = useState(false);
-  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
 
-  // Query to fetch all users for admin assignment
-  const { data: allUsers = [], isLoading: isLoadingUsers } = useQuery({
-    queryKey: ['allUsers'],
-    queryFn: async () => {
-      if (!user || !isAdmin) return [];
-      
-      // Using the new RLS policy, admin can fetch all profiles
+  return useMutation({
+    mutationFn: async (input: PackageInput) => {
+      if (!user) throw new Error("User not authenticated");
+
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, username, role');
-        
-      if (error) {
-        console.error('Error fetching users:', error);
-        toast.error(`Failed to fetch users: ${error.message}`);
-        return [];
-      }
-      return data || [];
+        .from("packages")
+        .insert({
+          name: input.name,
+          active: input.active,
+          created_by_id: user.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return toPackage(data);
     },
-    enabled: !!user && isAdmin,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
-  });
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.packages.all });
+      const previous = queryClient.getQueryData<Package[]>(
+        queryKeys.packages.all
+      );
 
-  // Query to fetch packages
-  const { 
-    data: packages = [], 
-    isLoading, 
-    error,
-    refetch
-  } = useQuery({
-    queryKey: ['packages'],
-    queryFn: fetchPackages,
-    enabled: !!user,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
-  });
-
-  // Mutation to add a new package
-  const addPackageMutation = useMutation({
-    mutationFn: async (newPackage: Omit<Package, 'id' | 'createdById' | 'createdAt' | 'updatedAt'>) => {
-      if (!user) throw new Error('User not authenticated');
-      
-      const packageData = {
-        ...appToDbPackage(newPackage),
-        created_by_id: user.id,
-        active: newPackage.active
+      const optimistic: Package = {
+        id: `temp-${Date.now()}`,
+        name: input.name,
+        createdById: user?.id ?? "",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        active: input.active,
       };
-      
-      const { data, error } = await supabase
-        .from('packages')
-        .insert(packageData)
-        .select();
-      
-      if (error) {
-        throw new Error(error.message);
+
+      queryClient.setQueryData<Package[]>(
+        queryKeys.packages.all,
+        (old = []) => [...old, optimistic]
+      );
+
+      return { previous, optimisticId: optimistic.id };
+    },
+    onError: (error: Error, _, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.packages.all, context.previous);
       }
-      
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['packages'] });
-      toast.success(`Package added successfully`);
-      setOpenDialog(false);
-      setSelectedPackage(null);
-    },
-    onError: (error: Error) => {
       toast.error(`Failed to add package: ${error.message}`);
-    }
+    },
+    onSuccess: (newPkg, _, context) => {
+      // Replace optimistic with real data
+      queryClient.setQueryData<Package[]>(queryKeys.packages.all, (old = []) =>
+        old.map((p) => (p.id === context?.optimisticId ? newPkg : p))
+      );
+      toast.success(`Package "${newPkg.name}" added`);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.packages.all });
+    },
   });
+};
 
-  // Mutation to update a package
-  const updatePackageMutation = useMutation({
-    mutationFn: async (packageData: Partial<Package> & { id: string }) => {
-      const { id, ...rest } = packageData;
-      
-      const dbData = {
-        ...appToDbPackage(rest),
-        active: rest.active
-      };
-      
+export const useUpdatePackage = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      ...input
+    }: { id: string } & Partial<PackageInput>) => {
       const { data, error } = await supabase
-        .from('packages')
-        .update(dbData)
-        .eq('id', id)
-        .select();
-      
-      if (error) {
-        console.error("Error updating package:", error);
-        throw new Error(error.message);
-      }
-      
-      return data && data[0] ? dbToAppPackage(data[0] as DbPackage) : packageData;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['packages'] });
-      toast.success(`Package updated successfully`);
-      setOpenDialog(false);
-      setSelectedPackage(null);
-    },
-    onError: (error: Error) => {
-      toast.error(`Failed to update package: ${error.message}`);
-    }
-  });
+        .from("packages")
+        .update({
+          ...(input.name !== undefined && { name: input.name }),
+          ...(input.active !== undefined && { active: input.active }),
+        })
+        .eq("id", id)
+        .select()
+        .single();
 
-  // Mutation to delete a package
-  const deletePackageMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('packages')
-        .delete()
-        .eq('id', id);
-      
-      if (error) {
-        throw new Error(error.message);
+      if (error) throw new Error(error.message);
+      return toPackage(data);
+    },
+    onMutate: async (updated) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.packages.all });
+      const previous = queryClient.getQueryData<Package[]>(
+        queryKeys.packages.all
+      );
+
+      if (previous) {
+        queryClient.setQueryData<Package[]>(
+          queryKeys.packages.all,
+          previous.map((p) => (p.id === updated.id ? { ...p, ...updated } : p))
+        );
       }
-      
+
+      return { previous };
+    },
+    onError: (error: Error, _, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.packages.all, context.previous);
+      }
+      toast.error(`Failed to update package: ${error.message}`);
+    },
+    onSuccess: (pkg) => {
+      toast.success(`Package "${pkg.name}" updated`);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.packages.all });
+    },
+  });
+};
+
+export const useDeletePackage = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("packages").delete().eq("id", id);
+      if (error) throw new Error(error.message);
       return id;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['packages'] });
-      toast.success(`Package deleted successfully`);
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.packages.all });
+      const previous = queryClient.getQueryData<Package[]>(
+        queryKeys.packages.all
+      );
+
+      if (previous) {
+        queryClient.setQueryData<Package[]>(
+          queryKeys.packages.all,
+          previous.filter((p) => p.id !== deletedId)
+        );
+      }
+
+      return { previous };
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.packages.all, context.previous);
+      }
       toast.error(`Failed to delete package: ${error.message}`);
-    }
+    },
+    onSuccess: () => {
+      toast.success("Package deleted");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.packages.all });
+    },
   });
-
-  // Handle edit package
-  const handleEditPackage = (pkg: Package) => {
-    setSelectedPackage(pkg);
-    setOpenDialog(true);
-  };
-
-  // Handle add package
-  const handleAddPackage = () => {
-    setSelectedPackage(null);
-    setOpenDialog(true);
-  };
-
-  // Handle delete package
-  const handleDeletePackage = (id: string) => {
-    deletePackageMutation.mutate(id);
-  };
-
-  return {
-    packages,
-    isLoading,
-    error,
-    openDialog,
-    setOpenDialog,
-    selectedPackage,
-    addPackageMutation,
-    updatePackageMutation,
-    deletePackageMutation,
-    handleEditPackage,
-    handleAddPackage,
-    handleDeletePackage,
-    isDeleting: deletePackageMutation.isPending,
-    isLoadingUsers,
-    refetch,
-    allUsers
-  };
 };

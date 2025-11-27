@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase, DbRoute } from '@/lib/supabase';
-import { toast } from 'sonner';
-import { fetchPackages } from './use-packages';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase, DbRoute } from "@/lib/supabase";
+import { queryKeys, cacheConfig } from "@/lib/query-keys";
+import { toast } from "sonner";
 
-// Type for our app's route format
+// ============================================================================
+// Types
+// ============================================================================
+
 export interface Route {
   id: string;
   source: string;
@@ -13,254 +15,193 @@ export interface Route {
   billingRatePerTon: number;
   vendorRatePerTon: number;
   estimatedTime: number;
-  assignedPackageId?: string;
+  assignedPackageId?: string | null;
 }
 
-// Convert DB format to app format
-const dbToAppRoute = (dbRoute: DbRoute): Route => ({
-  id: dbRoute.id,
-  source: dbRoute.source,
-  destination: dbRoute.destination,
-  distanceKm: Number(dbRoute.distance_km),
-  billingRatePerTon: Number(dbRoute.billing_rate_per_ton),
-  vendorRatePerTon: Number(dbRoute.vendor_rate_per_ton),
-  estimatedTime: Number(dbRoute.estimated_time),
-  assignedPackageId: dbRoute.assigned_package_id,
+export type RouteInput = Omit<Route, "id">;
+
+// ============================================================================
+// Converters
+// ============================================================================
+
+const toRoute = (db: DbRoute): Route => ({
+  id: db.id,
+  source: db.source,
+  destination: db.destination,
+  distanceKm: Number(db.distance_km),
+  billingRatePerTon: Number(db.billing_rate_per_ton),
+  vendorRatePerTon: Number(db.vendor_rate_per_ton),
+  estimatedTime: Number(db.estimated_time),
+  assignedPackageId: db.assigned_package_id,
 });
 
-// Convert app format to DB format
-const appToDbRoute = (route: Partial<Route>) => ({
-  source: route.source,
-  destination: route.destination,
-  distance_km: route.distanceKm,
-  billing_rate_per_ton: route.billingRatePerTon,
-  vendor_rate_per_ton: route.vendorRatePerTon,
-  estimated_time: route.estimatedTime || 0,
-  assigned_package_id: route.assignedPackageId && route.assignedPackageId !== "none" ? route.assignedPackageId : null,
+const toDbInsert = (input: RouteInput) => ({
+  source: input.source,
+  destination: input.destination,
+  distance_km: input.distanceKm,
+  billing_rate_per_ton: input.billingRatePerTon,
+  vendor_rate_per_ton: input.vendorRatePerTon,
+  estimated_time: input.estimatedTime || 0,
+  assigned_package_id:
+    input.assignedPackageId && input.assignedPackageId !== "none"
+      ? input.assignedPackageId
+      : null,
 });
 
-// Isolate the data fetching function
-export const fetchRoutes = async () => {
+// ============================================================================
+// API Functions
+// ============================================================================
+
+export const fetchRoutes = async (): Promise<Route[]> => {
   const { data, error } = await supabase
-    .from('routes')
-    .select('*')
-    .order('source');
-  
-  if (error) {
-    throw new Error(error.message);
-  }
-  
-  return (data as DbRoute[]).map(dbToAppRoute);
+    .from("routes")
+    .select("*")
+    .order("source");
+
+  if (error) throw new Error(error.message);
+  return data.map(toRoute);
 };
 
-export const useRoutes = () => {
-  const queryClient = useQueryClient();
-  const [openDialog, setOpenDialog] = useState(false);
-  const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
-  
-  const [formData, setFormData] = useState({
-    source: '',
-    destination: '',
-    distanceKm: '',
-    billingRatePerTon: '',
-    vendorRatePerTon: '',
-    estimatedTime: '',
-    assignedPackageId: 'none',
-  });
+// ============================================================================
+// Query Hook
+// ============================================================================
 
-  // Query to fetch routes
-  const { 
-    data: routes = [], 
-    isLoading, 
-    error 
-  } = useQuery({
-    queryKey: ['routes'],
+export const useRoutesQuery = () => {
+  return useQuery({
+    queryKey: queryKeys.routes.all,
     queryFn: fetchRoutes,
-    staleTime: 3 * 60 * 1000, // 3 minutes
-    gcTime: 8 * 60 * 1000, // 8 minutes
+    ...cacheConfig.standard,
   });
-  
-  // Query to fetch packages for assignment
-  const { data: packages = [] } = useQuery({
-    queryKey: ['packagesForRoutes'],
-    queryFn: fetchPackages,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
-  });
+};
 
-  // Mutation to add a new route
-  const addRouteMutation = useMutation({
-    mutationFn: async (route: Omit<Route, 'id'>) => {
+// ============================================================================
+// Mutation Hooks
+// ============================================================================
+
+export const useAddRoute = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: RouteInput) => {
       const { data, error } = await supabase
-        .from('routes')
-        .insert(appToDbRoute(route))
+        .from("routes")
+        .insert(toDbInsert(input))
         .select()
         .single();
-      
-      if (error) {
-        throw new Error(error.message);
-      }
-      
-      return dbToAppRoute(data as DbRoute);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['routes'] });
-      toast.success(`Route "${formData.source} to ${formData.destination}" added successfully`);
-      setOpenDialog(false);
-      resetForm();
-    },
-    onError: (error: Error) => {
-      toast.error(`Failed to add route: ${error.message}`);
-    }
-  });
 
-  // Mutation to update a route
-  const updateRouteMutation = useMutation({
+      if (error) throw new Error(error.message);
+      return toRoute(data);
+    },
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.routes.all });
+      const previous = queryClient.getQueryData<Route[]>(queryKeys.routes.all);
+
+      const optimistic: Route = {
+        id: `temp-${Date.now()}`,
+        ...input,
+      };
+
+      queryClient.setQueryData<Route[]>(queryKeys.routes.all, (old = []) => [
+        ...old,
+        optimistic,
+      ]);
+
+      return { previous, optimisticId: optimistic.id };
+    },
+    onError: (error: Error, _, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.routes.all, context.previous);
+      }
+      toast.error(`Failed to add route: ${error.message}`);
+    },
+    onSuccess: (newRoute, _, context) => {
+      queryClient.setQueryData<Route[]>(queryKeys.routes.all, (old = []) =>
+        old.map((r) => (r.id === context?.optimisticId ? newRoute : r))
+      );
+      toast.success(
+        `Route "${newRoute.source} → ${newRoute.destination}" added`
+      );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.routes.all });
+    },
+  });
+};
+
+export const useUpdateRoute = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
     mutationFn: async (route: Route) => {
       const { error } = await supabase
-        .from('routes')
-        .update(appToDbRoute(route))
-        .eq('id', route.id);
-      
-      if (error) {
-        throw new Error(error.message);
-      }
-      
+        .from("routes")
+        .update(toDbInsert(route))
+        .eq("id", route.id);
+
+      if (error) throw new Error(error.message);
       return route;
     },
-    onSuccess: (route) => {
-      queryClient.invalidateQueries({ queryKey: ['routes'] });
-      toast.success(`Route "${route.source} to ${route.destination}" updated successfully`);
-      setOpenDialog(false);
-      resetForm();
-    },
-    onError: (error: Error) => {
-      toast.error(`Failed to update route: ${error.message}`);
-    }
-  });
+    onMutate: async (updated) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.routes.all });
+      const previous = queryClient.getQueryData<Route[]>(queryKeys.routes.all);
 
-  // Mutation to delete a route
-  const deleteRouteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('routes')
-        .delete()
-        .eq('id', id);
-      
-      if (error) {
-        throw new Error(error.message);
+      if (previous) {
+        queryClient.setQueryData<Route[]>(
+          queryKeys.routes.all,
+          previous.map((r) => (r.id === updated.id ? updated : r))
+        );
       }
-      
+
+      return { previous };
+    },
+    onError: (error: Error, _, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.routes.all, context.previous);
+      }
+      toast.error(`Failed to update route: ${error.message}`);
+    },
+    onSuccess: (route) => {
+      toast.success(`Route "${route.source} → ${route.destination}" updated`);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.routes.all });
+    },
+  });
+};
+
+export const useDeleteRoute = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("routes").delete().eq("id", id);
+      if (error) throw new Error(error.message);
       return id;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['routes'] });
-      
-      // Find the deleted route's name for the success message
-      const deletedRoute = routes.find(r => r.id === variables);
-      if (deletedRoute) {
-        toast.success(`Route "${deletedRoute.source} to ${deletedRoute.destination}" deleted successfully`);
-      } else {
-        toast.success('Route deleted successfully');
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.routes.all });
+      const previous = queryClient.getQueryData<Route[]>(queryKeys.routes.all);
+
+      if (previous) {
+        queryClient.setQueryData<Route[]>(
+          queryKeys.routes.all,
+          previous.filter((r) => r.id !== deletedId)
+        );
       }
+
+      return { previous };
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.routes.all, context.previous);
+      }
       toast.error(`Failed to delete route: ${error.message}`);
-    }
+    },
+    onSuccess: () => {
+      toast.success("Route deleted");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.routes.all });
+    },
   });
-
-  // Handle input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  // Handle select changes
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  // Set up to edit a route
-  const handleEditRoute = (route: Route) => {
-    setSelectedRoute(route);
-    setFormData({
-      source: route.source,
-      destination: route.destination,
-      distanceKm: route.distanceKm.toString(),
-      billingRatePerTon: route.billingRatePerTon.toString(),
-      vendorRatePerTon: route.vendorRatePerTon.toString(),
-      estimatedTime: route.estimatedTime.toString(),
-      assignedPackageId: route.assignedPackageId || 'none',
-    });
-    setOpenDialog(true);
-  };
-
-  // Set up to add a new route
-  const handleAddRoute = () => {
-    setSelectedRoute(null);
-    resetForm();
-    setOpenDialog(true);
-  };
-
-  // Reset the form
-  const resetForm = () => {
-    setFormData({
-      source: '',
-      destination: '',
-      distanceKm: '',
-      billingRatePerTon: '',
-      vendorRatePerTon: '',
-      estimatedTime: '',
-      assignedPackageId: 'none',
-    });
-  };
-
-  // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const routeData = {
-      source: formData.source,
-      destination: formData.destination,
-      distanceKm: Number(formData.distanceKm),
-      billingRatePerTon: Number(formData.billingRatePerTon),
-      vendorRatePerTon: Number(formData.vendorRatePerTon),
-      estimatedTime: Number(formData.estimatedTime || '0'),
-      assignedPackageId: formData.assignedPackageId === 'none' ? undefined : formData.assignedPackageId,
-    };
-    
-    if (selectedRoute) {
-      // Update existing route
-      updateRouteMutation.mutate({
-        id: selectedRoute.id,
-        ...routeData
-      });
-    } else {
-      // Add new route
-      addRouteMutation.mutate(routeData as Omit<Route, 'id'>);
-    }
-  };
-
-  // Handle route deletion
-  const handleDeleteRoute = (id: string) => {
-    deleteRouteMutation.mutate(id);
-  };
-
-  return {
-    routes,
-    isLoading,
-    error,
-    openDialog,
-    setOpenDialog,
-    selectedRoute,
-    formData,
-    handleInputChange,
-    handleSelectChange,
-    handleEditRoute,
-    handleAddRoute,
-    handleSubmit,
-    handleDeleteRoute,
-    isSubmitting: addRouteMutation.isPending || updateRouteMutation.isPending,
-    isDeleting: deleteRouteMutation.isPending,
-  };
 };
